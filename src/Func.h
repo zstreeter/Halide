@@ -191,6 +191,27 @@ public:
      * the stage we are calling compute_with on should not have specializations,
      * e.g. f2.compute_with(f1, x) is allowed only if f2 has no specializations.
      *
+     * Also, if a producer is desired to be computed at the fused loop level,
+     * the function passed to the compute_at() needs to be the "parent". Consider
+     * the following code:
+     \code
+     input(x, y) = x + y;
+     f(x, y) = input(x, y);
+     f(x, y) += 5;
+     g(x, y) = x - y;
+     g(x, y) += 10;
+     f.compute_with(g, y);
+     f.update().compute_with(g.update(), y);
+     \endcode
+     *
+     * To compute 'input' at the fused loop level at dimension y, we specify
+     * input.compute_at(g, y) instead of input.compute_at(f, y) since 'g' is
+     * the "parent" for this fused loop (i.e. 'g' is computed first before 'f'
+     * is computed). On the other hand, to compute 'input' at the innermost
+     * dimension of 'f', we specify input.compute_at(f, x) instead of
+     * input.compute_at(g, x) since the x dimension of 'f' is not fused
+     * (only the y dimension is).
+     *
      * Given the constraints, this has a variety of uses. Consider the
      * following code:
      \code
@@ -860,6 +881,12 @@ public:
                                  const std::vector<Argument> &args,
                                  StmtOutputFormat fmt = Text,
                                  const Target &target = get_target_from_environment());
+
+    /** Emit a Python Extension glue .c file. */
+    void compile_to_python_extension(const std::string &filename_prefix,
+                                     const std::vector<Argument> &args,
+                                     const std::string &fn_name,
+                                     const Target &target = get_target_from_environment());
 
     /** Write out the loop nests specified by the schedule for this
      * Function. Helpful for understanding what a schedule is
@@ -2086,6 +2113,24 @@ public:
      */
     Func &memoize();
 
+    /** Produce this Func asynchronously in a separate
+     * thread. Consumers will be run by the task system when the
+     * production is complete. If this Func's store level is different
+     * to its compute level, consumers will be run concurrently,
+     * blocking as necessary to prevent reading ahead of what the
+     * producer has computed. If storage is folded, then the producer
+     * will additionally not be permitted to run too far ahead of the
+     * consumer, to avoid clobbering data that has not yet been
+     * used.
+     *
+     * Take special care when combining this with custom thread pool
+     * implementations, as avoiding deadlock with producer-consumer
+     * parallelism requires a much more sophisticated parallel runtime
+     * than with data parallelism alone. It is strongly recommended
+     * you just use Halide's default thread pool, which guarantees no
+     * deadlock and a bound on the number of threads launched.
+     */
+    Func &async();
 
     /** Allocate storage for this function within f's loop over
      * var. Scheduling storage is optional, and can be used to

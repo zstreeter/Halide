@@ -429,6 +429,17 @@ struct Block : public StmtNode<Block> {
     static const IRNodeType _node_type = IRNodeType::Block;
 };
 
+/** A pair of statements executed concurrently. Both statements are
+ * joined before the Stmt ends. This is the parallel equivalent to
+ * Block. */
+struct Fork : public StmtNode<Fork> {
+    Stmt first, rest;
+
+    static Stmt make(Stmt first, Stmt rest);
+
+    static const IRNodeType _node_type = IRNodeType::Fork;
+};
+
 /** An if-then-else block. 'else' may be undefined. */
 struct IfThenElse : public StmtNode<IfThenElse> {
     Expr condition;
@@ -517,12 +528,16 @@ struct Call : public ExprNode<Call> {
         extract_mask_element,
         require,
         size_of_halide_buffer_t,
-        strict_float;
+        strict_float,
+        quiet_div,
+        quiet_mod,
+        unsafe_promise_clamped;
 
     // We also declare some symbolic names for some of the runtime
     // functions that we want to construct Call nodes to here to avoid
     // magic string constants and the potential risk of typos.
     HALIDE_EXPORT static ConstString
+        buffer_get_dimensions,
         buffer_get_min,
         buffer_get_extent,
         buffer_get_stride,
@@ -676,6 +691,16 @@ struct For : public StmtNode<For> {
     static const IRNodeType _node_type = IRNodeType::For;
 };
 
+struct Acquire : public StmtNode<Acquire> {
+    Expr semaphore;
+    Expr count;
+    Stmt body;
+
+    static Stmt make(Expr semaphore, Expr count, Stmt body);
+
+    static const IRNodeType _node_type = IRNodeType::Acquire;
+};
+
 /** Construct a new vector by taking elements from another sequence of
  * vectors. */
 struct Shuffle : public ExprNode<Shuffle> {
@@ -735,12 +760,15 @@ struct Prefetch : public StmtNode<Prefetch> {
     std::string name;
     std::vector<Type> types;
     Region bounds;
+    PrefetchDirective prefetch;
+    Expr condition;
 
-    /** If it's a prefetch load from an image parameter, this points to that. */
-    Parameter param;
+    Stmt body;
 
     static Stmt make(const std::string &name, const std::vector<Type> &types,
-                     const Region &bounds, Parameter param = Parameter());
+                     const Region &bounds,
+                     const PrefetchDirective &prefetch,
+                     Expr condition, Stmt body);
 
     static const IRNodeType _node_type = IRNodeType::Prefetch;
 };

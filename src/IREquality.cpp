@@ -80,12 +80,14 @@ private:
     void visit(const AssertStmt *);
     void visit(const ProducerConsumer *);
     void visit(const For *);
+    void visit(const Acquire *);
     void visit(const Store *);
     void visit(const Provide *);
     void visit(const Allocate *);
     void visit(const Free *);
     void visit(const Realize *);
     void visit(const Block *);
+    void visit(const Fork *);
     void visit(const IfThenElse *);
     void visit(const Evaluate *);
     void visit(const Shuffle *);
@@ -416,6 +418,7 @@ void IRComparer::visit(const ProducerConsumer *op) {
     compare_stmt(s->body, op->body);
 }
 
+
 void IRComparer::visit(const For *op) {
     const For *s = stmt.as<For>();
 
@@ -423,6 +426,14 @@ void IRComparer::visit(const For *op) {
     compare_scalar(s->for_type, op->for_type);
     compare_expr(s->min, op->min);
     compare_expr(s->extent, op->extent);
+    compare_stmt(s->body, op->body);
+}
+
+void IRComparer::visit(const Acquire *op) {
+    const Acquire *s = stmt.as<Acquire>();
+
+    compare_expr(s->semaphore, op->semaphore);
+    compare_expr(s->count, op->count);
     compare_stmt(s->body, op->body);
 }
 
@@ -479,6 +490,13 @@ void IRComparer::visit(const Block *op) {
     compare_stmt(s->rest, op->rest);
 }
 
+void IRComparer::visit(const Fork *op) {
+    const Fork *s = stmt.as<Fork>();
+
+    compare_stmt(s->first, op->first);
+    compare_stmt(s->rest, op->rest);
+}
+
 void IRComparer::visit(const Free *op) {
     const Free *s = stmt.as<Free>();
 
@@ -511,14 +529,20 @@ void IRComparer::visit(const Shuffle *op) {
 }
 
 void IRComparer::visit(const Prefetch *op) {
-    const Prefetch *s = expr.as<Prefetch>();
+    const Prefetch *s = stmt.as<Prefetch>();
 
     compare_names(s->name, op->name);
+    compare_scalar(s->types.size(), op->types.size());
     compare_scalar(s->bounds.size(), op->bounds.size());
+    for (size_t i = 0; (result == Equal) && (i < s->types.size()); i++) {
+        compare_types(s->types[i], op->types[i]);
+    }
     for (size_t i = 0; (result == Equal) && (i < s->bounds.size()); i++) {
         compare_expr(s->bounds[i].min, op->bounds[i].min);
         compare_expr(s->bounds[i].extent, op->bounds[i].extent);
     }
+    compare_expr(s->condition, op->condition);
+    compare_stmt(s->body, op->body);
 }
 
 } // namespace

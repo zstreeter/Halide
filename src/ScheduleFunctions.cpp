@@ -14,6 +14,7 @@
 #include "Substitute.h"
 #include "Target.h"
 #include "Var.h"
+#include "Prefetch.h"
 #include "CopyElision.h"
 
 #include <algorithm>
@@ -25,6 +26,7 @@ using std::map;
 using std::pair;
 using std::set;
 using std::string;
+using std::tuple;
 using std::vector;
 
 namespace {
@@ -440,15 +442,15 @@ Stmt build_provide_loop_nest_helper(string func_name,
 }
 
 // Build a loop nest about a provide node using a schedule
-Stmt build_provide_loop_nest(string func_name,
+Stmt build_provide_loop_nest(const map<string, Function> &env,
+                             string func_name,
                              string prefix,
                              int start_fuse,
                              const vector<string> &dims,
                              const FuncSchedule &f_sched,
                              const Definition &def,
                              bool is_update,
-                             const map<string, string> &pointwise_copies,
-                             const map<string, Function> &env) {
+                             const map<string, string> &pointwise_copies) {
 
     internal_assert(!is_update == def.is_init());
 
@@ -475,6 +477,7 @@ Stmt build_provide_loop_nest(string func_name,
         func_name, prefix, start_fuse, dims, site, values,
         def.split_predicate(), f_sched, def.schedule(), is_update,
         pointwise_copies, env);
+    stmt = inject_placeholder_prefetch(stmt, env, prefix, def.schedule().prefetches());
 
     // Make any specialized copies
     const vector<Specialization> &specializations = def.specializations();
@@ -484,8 +487,8 @@ Stmt build_provide_loop_nest(string func_name,
         const Definition &s_def = s.definition;
         Stmt then_case;
         if (s.failure_message.empty()) {
-            then_case = build_provide_loop_nest(func_name, prefix, start_fuse, dims,
-                                                f_sched, s_def, is_update, pointwise_copies, env);
+            then_case = build_provide_loop_nest(env, func_name, prefix, start_fuse, dims,
+                                                f_sched, s_def, is_update, pointwise_copies);
         } else {
             internal_assert(equal(c, const_true()));
             // specialize_fail() should only be possible on the final specialization
@@ -509,7 +512,7 @@ Stmt build_provide_loop_nest(string func_name,
 // which it should be realized. It will compute at least those
 // bounds (depending on splits, it may compute more). This loop
 // won't do any allocation.
-Stmt build_produce(Function f, const Target &target, const map<string, string> &pointwise_copies, const map<string, Function> &env) {
+Stmt build_produce(const map<string, Function> &env, Function f, const Target &target, const map<string, string> &pointwise_copies) {
 
     if (f.has_extern_definition()) {
         // Call the external function
@@ -808,12 +811,12 @@ Stmt build_produce(Function f, const Target &target, const map<string, string> &
 
         string prefix = f.name() + ".s0.";
         vector<string> dims = f.args();
-        return build_provide_loop_nest(f.name(), prefix, -1, dims, f.schedule(), f.definition(), false, pointwise_copies, env);
+        return build_provide_loop_nest(env, f.name(), prefix, -1, dims, f.schedule(), f.definition(), false, pointwise_copies);
     }
 }
 
 // Build the loop nests that update a function (assuming it's a reduction).
-vector<Stmt> build_update(Function f, const map<string, string> &pointwise_copies, const map<string, Function> &env) {
+vector<Stmt> build_update(const map<string, Function> &env, Function f, const map<string, string> &pointwise_copies) {
 
     vector<Stmt> updates;
 
@@ -823,16 +826,16 @@ vector<Stmt> build_update(Function f, const map<string, string> &pointwise_copie
         string prefix = f.name() + ".s" + std::to_string(i+1) + ".";
 
         vector<string> dims = f.args();
-        Stmt loop = build_provide_loop_nest(f.name(), prefix, -1, dims, f.schedule(), def, true, pointwise_copies, env);
+        Stmt loop = build_provide_loop_nest(env, f.name(), prefix, -1, dims, f.schedule(), def, true, pointwise_copies);
         updates.push_back(loop);
     }
 
     return updates;
 }
 
-pair<Stmt, Stmt> build_production(Function func, const Target &target, const map<string, string> &pointwise_copies, const map<string, Function> &env) {
-    Stmt produce = build_produce(func, target, pointwise_copies, env);
-    vector<Stmt> updates = build_update(func, pointwise_copies, env);
+pair<Stmt, Stmt> build_production(const map<string, Function> &env, Function func, const Target &target, const map<string, string> &pointwise_copies) {
+    Stmt produce = build_produce(env, func, target, pointwise_copies);
+    vector<Stmt> updates = build_update(env, func, pointwise_copies);
 
     // Combine the update steps
     Stmt merged_updates = Block::make(updates);
@@ -946,63 +949,8 @@ public:
           pointwise_copies(pointwise_copies) {}
 
 private:
-    // Determine if 'loop_name' is the right level to inject produce/realize node
-    // of 'func'. If 'loop_name' is a fused group, we should inject it at the
-    // fused parent loop of the group.
-    bool is_the_right_level(const string &loop_name) {
-        if (loop_name == LoopLevel::root().lock().to_string()) {
-            return true;
-        }
-
-        vector<string> v = split_string(loop_name, ".");
-        internal_assert(v.size() > 2);
-        const string &func_name = v[0];
-        const string &var = v[v.size()-1];
-
-        int stage = -1;
-        for (size_t i = 1; i < v.size() - 1; ++i) {
-            if (v[i].substr(0, 1) == "s") {
-                string str = v[i].substr(1, v[i].size() - 1);
-                bool has_only_digits = (str.find_first_not_of( "0123456789" ) == string::npos);
-                if (has_only_digits) {
-                    stage = atoi(str.c_str());
-                }
-            }
-        }
-        internal_assert(stage >= 0);
-
-        const auto &it = env.find(func_name);
-        internal_assert(it != env.end());
-        const Function &f = it->second;
-        internal_assert(stage <= (int)f.updates().size());
-
-        if (f.has_extern_definition()) {
-            return true;
-        }
-
-        const Definition &def = (stage == 0) ? f.definition() : f.update(stage - 1);
-        const LoopLevel &fuse_level = def.schedule().fuse_level().level;
-        if (fuse_level.is_inlined() || fuse_level.is_root()) {
-            // It isn't fused to anyone
-            return true;
-        } else {
-            // Need to find out if it is fused at 'var'
-            const vector<Dim> &dims = def.schedule().dims();
-            const auto &it1 = std::find_if(dims.begin(), dims.end(),
-                [&fuse_level](const Dim &d) { return var_name_match(d.var, fuse_level.var().name()); });
-            internal_assert(it1 != dims.end());
-
-            const auto &it2 = std::find_if(dims.begin(), dims.end(),
-                [&var](const Dim &d) { return var_name_match(d.var, var); });
-            internal_assert(it2 != dims.end());
-
-            return it2 < it1;
-        }
-        return false;
-    }
-
     Stmt build_pipeline(Stmt consumer) {
-        pair<Stmt, Stmt> realization = build_production(func, target, pointwise_copies, env);
+        pair<Stmt, Stmt> realization = build_production(env, func, target, pointwise_copies);
 
         Stmt producer;
         if (realization.first.defined() && realization.second.defined()) {
@@ -1062,6 +1010,13 @@ private:
 
         Stmt body = for_loop->body;
 
+        // Dig through any placeholder prefetches
+        vector<tuple<string, vector<Type>, PrefetchDirective>> placeholder_prefetches;
+        while (const Prefetch *p = body.as<Prefetch>()) {
+            placeholder_prefetches.push_back(std::make_tuple(p->name, p->types, p->prefetch));
+            body = p->body;
+        }
+
         // Dig through any let statements
         vector<pair<string, Expr>> lets;
         while (const LetStmt *l = body.as<LetStmt>()) {
@@ -1095,7 +1050,7 @@ private:
 
         body = mutate(body);
 
-        if (compute_level.match(for_loop->name) && is_the_right_level(for_loop->name)) {
+        if (compute_level.match(for_loop->name)) {
             debug(3) << "Found compute level\n";
             if (!function_is_already_realized_in_stmt(func, body) &&
                 (function_is_used_in_stmt(func, body) || is_output)) {
@@ -1104,7 +1059,7 @@ private:
             found_compute_level = true;
         }
 
-        if (store_level.match(for_loop->name) && is_the_right_level(for_loop->name)) {
+        if (store_level.match(for_loop->name)) {
             debug(3) << "Found store level\n";
             internal_assert(found_compute_level)
                 << "The compute loop level was not found within the store loop level!\n";
@@ -1120,6 +1075,16 @@ private:
         // Reinstate the let statements
         for (size_t i = lets.size(); i > 0; i--) {
             body = LetStmt::make(lets[i - 1].first, lets[i - 1].second, body);
+        }
+
+        // Reinstate the placeholder prefetches
+        for (size_t i = placeholder_prefetches.size(); i > 0; i--) {
+            body = Prefetch::make(std::get<0>(placeholder_prefetches[i - 1]),
+                                  std::get<1>(placeholder_prefetches[i - 1]),
+                                  Region(),
+                                  std::get<2>(placeholder_prefetches[i - 1]),
+                                  const_true(),
+                                  body);
         }
 
         if (body.same_as(for_loop->body)) {
@@ -1583,8 +1548,8 @@ private:
         }
 
         const vector<string> f_args = f.args();
-        Stmt produce = build_provide_loop_nest(f.name(), prefix, start_fuse, f_args,
-                                               f.schedule(), def, is_update, pointwise_copies, env);
+        Stmt produce = build_provide_loop_nest(env, f.name(), prefix, start_fuse, f_args,
+                                               f.schedule(), def, is_update, pointwise_copies);
 
         // Strip off the containing lets. The bounds of the parent fused loop
         // (i.e. the union bounds) might refer to them, so we need to move them
@@ -1751,6 +1716,13 @@ private:
 
         Stmt body = for_loop->body;
 
+        // Dig through any placeholder prefetches
+        vector<tuple<string, vector<Type>, PrefetchDirective>> placeholder_prefetches;
+        while (const Prefetch *p = body.as<Prefetch>()) {
+            placeholder_prefetches.push_back(std::make_tuple(p->name, p->types, p->prefetch));
+            body = p->body;
+        }
+
         // Dig through any let statements
         vector<pair<string, Expr>> lets;
         while (const LetStmt *l = body.as<LetStmt>()) {
@@ -1777,6 +1749,16 @@ private:
         // Reinstate the let statements
         for (size_t i = lets.size(); i > 0; i--) {
             body = LetStmt::make(lets[i - 1].first, lets[i - 1].second, body);
+        }
+
+        // Reinstate the placeholder prefetches
+        for (size_t i = placeholder_prefetches.size(); i > 0; i--) {
+            body = Prefetch::make(std::get<0>(placeholder_prefetches[i - 1]),
+                                  std::get<1>(placeholder_prefetches[i - 1]),
+                                  Region(),
+                                  std::get<2>(placeholder_prefetches[i - 1]),
+                                  const_true(),
+                                  body);
         }
 
         if (body.same_as(for_loop->body)) {
