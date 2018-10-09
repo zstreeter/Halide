@@ -203,6 +203,19 @@ string get_elision_pair_candidates(const Function &f,
 
                 Function prod_f = Function(call->func);
 
+                if (prod_f.has_pure_definition()) {
+                    for (const Dim& i : prod_f.definition().schedule().dims()) {
+                        if (i.for_type != ForType::Serial) {
+                            // If something in the schedule of the producer has been
+                            // marked other than serial, eliding the copy may break
+                            // the schedule.
+                            debug(4) << "...Not a valid copy-elision pair: Function \""
+                                     << prod_f.name() << "\" has non-trivial schedule.\n";
+                            return "";
+                        }
+                    }
+                }
+
                 if (!is_prod_within_cons_realization(env, env.at(prod_f.name()), f, is_output)) {
                     debug(4) << "...Not a valid copy-elision pair: computation of Function \""
                              << prod_f.name() << "\" is not within the scope of realization of Function \""
