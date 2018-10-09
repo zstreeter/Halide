@@ -14,7 +14,7 @@ public:
         g(x, y) = input(x, y) * 2;
         g.compute_root();
 
-        output(x, y) = g(x, y);
+        output(x, y) = g(x, y) + 1;
 
         output.parallel(y);
         output.trace_stores();
