@@ -27,7 +27,7 @@ extern "C" DLLEXPORT int copy_and_check_strides(halide_buffer_t *in, halide_buff
 using namespace Halide;
 
 int main(int argc, char **argv) {
-    /*Var x, y;
+    Var x, y;
 
     const int W = 30, H = 20;
     Buffer<uint8_t> input_buffer(W, H);
@@ -53,7 +53,7 @@ int main(int argc, char **argv) {
         for (int j = 0; j < W; j++) {
             assert(output(j, i) == i + j);
         }
-    }*/
+    }
 
     printf("Success!\n");
     return 0;
