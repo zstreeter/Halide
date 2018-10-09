@@ -203,6 +203,15 @@ string get_elision_pair_candidates(const Function &f,
 
                 Function prod_f = Function(call->func);
 
+                if (prod_f.schedule().async()) {
+                    // If something in the schedule of the producer has been
+                    // marked other than serial, eliding the copy may break
+                    // the schedule.
+                    debug(4) << "...Not a valid copy-elision pair: Function \""
+                             << prod_f.name() << "\" is async.\n";
+                    return "";
+                }
+
                 if (prod_f.has_pure_definition()) {
                     for (const Dim& i : prod_f.definition().schedule().dims()) {
                         if (i.for_type != ForType::Serial) {
