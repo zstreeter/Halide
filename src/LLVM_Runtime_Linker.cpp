@@ -129,6 +129,7 @@ DECLARE_CPP_INITMOD(qurt_allocator)
 DECLARE_CPP_INITMOD(hexagon_cache_allocator)
 DECLARE_CPP_INITMOD(hexagon_dma_pool)
 DECLARE_CPP_INITMOD(qurt_hvx)
+DECLARE_CPP_INITMOD(qurt_hvx_vtcm)
 DECLARE_CPP_INITMOD(qurt_init_fini)
 DECLARE_CPP_INITMOD(qurt_threads)
 DECLARE_CPP_INITMOD(qurt_threads_tsan)
@@ -859,6 +860,11 @@ std::unique_ptr<llvm::Module> get_initial_module_for_target(Target t, llvm::LLVM
                 } else if (t.has_feature(Target::HVX_128)) {
                     modules.push_back(get_initmod_hvx_128_ll(c));
                 }
+                if (t.has_feature(Target::HVX_v65)) {
+                    modules.push_back(get_initmod_qurt_hvx_vtcm(c, bits_64,
+                                                                debug));
+                }
+
             } else {
                 modules.push_back(get_initmod_prefetch(c, bits_64, debug));
             }
