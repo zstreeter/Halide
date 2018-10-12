@@ -25,8 +25,8 @@ typedef struct {
     hexagon_dma_virtual_engine_t virtual_engine_list[MAX_NUMBER_OF_DMA_ENGINES];
 } hexagon_dma_pool_t;
 
-hexagon_dma_pool_t *hexagon_dma_pool = NULL;
-halide_mutex hexagon_dma_pool_mutex;
+static hexagon_dma_pool_t *hexagon_dma_pool = NULL;
+static halide_mutex hexagon_dma_pool_mutex;
 
 // In this function we pick the dma engine and assign it to a virtual engine
 static inline void *hexagon_dma_pool_get (void *user_context, void *virtual_engine_id) {
@@ -98,8 +98,10 @@ int halide_hexagon_free_dma_resource(void *user_context, void *virtual_engine_id
         if (num != -1) {
             hexagon_dma_pool->dma_engine_list[num].assigned = false;
             hexagon_dma_pool->dma_engine_list[num].used = false;
-            //TODO Call DMAWrapperFinishFrame during write
-            //nDmaWrapper_FinishFrame(hexagon_dma_pool->dma_engine_list[num].engine_addr);
+            if (hexagon_dma_pool->dma_engine_list[num].engine_addr) {
+                //TODO Call DMAWrapperFinishFrame during write
+		nDmaWrapper_FinishFrame(hexagon_dma_pool->dma_engine_list[num].engine_addr);
+            }
         }
         virtual_engine_addr->mapped_engines[j] = 0;
     }
