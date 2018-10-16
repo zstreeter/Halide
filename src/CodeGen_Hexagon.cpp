@@ -1474,6 +1474,7 @@ Value *CodeGen_Hexagon::vlut(Value *lut, const vector<int> &indices) {
 
     llvm::Type *i8x_t = VectorType::get(i8_t, indices.size());
     llvm::Type *i16x_t = VectorType::get(i16_t, indices.size());
+    llvm::Type *i32x_t = VectorType::get(i32_t, indices.size());
 
     // We use i16 indices because we can't support LUTs with more than
     // 32k elements anyways without massive stack spilling (the LUT
@@ -1506,7 +1507,13 @@ Value *CodeGen_Hexagon::vlut(Value *lut, const vector<int> &indices) {
         // After we've eliminated the invalid elements, we can
         // truncate to 8 bits, as vlut requires.
         llvm_index = call_intrin(i8x_t, "halide.hexagon.pack.vh", {llvm_index});
-        use_index = call_intrin(i8x_t, "halide.hexagon.pack.vh", {use_index});
+
+        // The flag to use each result needs to have the same scalar width as the result type.
+        if (lut->getType()->getVectorElementType()->getScalarSizeInBits() == 8) {
+            use_index = call_intrin(i8x_t, "halide.hexagon.pack.vh", {use_index});
+        } else if (lut->getType()->getVectorElementType()->getScalarSizeInBits() == 32) {
+            use_index = call_intrin(i32x_t, "halide.hexagon.unpack.vh", {use_index});
+        }
 
         int range_extent_i = std::min(max_index - min_index_i, 255);
         Value *range_i = vlut(slice_vector(lut, min_index_i, range_extent_i), llvm_index, 0, range_extent_i);
