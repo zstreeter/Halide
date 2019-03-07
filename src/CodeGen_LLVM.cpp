@@ -24,6 +24,7 @@
 #include "LLVM_Runtime_Linker.h"
 #include "Lerp.h"
 #include "MatlabWrapper.h"
+#include "Pipeline.h"
 #include "Simplify.h"
 #include "Util.h"
 
@@ -1095,8 +1096,47 @@ llvm::Function *CodeGen_LLVM::embed_metadata_getter(const std::string &metadata_
     return metadata_getter;
 }
 
-llvm::Type *CodeGen_LLVM::llvm_type_of(Type t) {
-    return Internal::llvm_type_of(context, t);
+llvm::FunctionType *CodeGen_LLVM::llvm_function_type_for_signature(const ExternSignature &signature) {
+    llvm::Type *ret_type = signature.is_void_return() ? void_t : llvm_type_of(signature.ret_type());
+
+    std::vector<llvm::Type *> llvm_arg_types;
+    for (const Type &t : signature.arg_types()) {
+        if (t == type_of<struct halide_buffer_t *>()) {
+            llvm_arg_types.push_back(buffer_t_type->getPointerTo());
+        } else {
+            llvm_arg_types.push_back(llvm_type_of(t));
+        }
+    }
+
+    return llvm::FunctionType::get(ret_type, llvm_arg_types, false);
+}
+
+llvm::Type *CodeGen_LLVM::llvm_type_of(const Type& t) {
+    llvm::Type *result;
+    if (t.is_float()) {
+        switch (t.bits()) {
+        case 16:
+            result = llvm::Type::getHalfTy(*context);
+            break;
+        case 32:
+            result = llvm::Type::getFloatTy(*context);
+            break;
+        case 64:
+            result = llvm::Type::getDoubleTy(*context);
+            break;
+        default:
+            internal_error << "There is no llvm type matching this floating-point bit width: " << t << "\n";
+            break;
+        }
+    } else if (t.is_handle()) {
+        result = llvm::Type::getInt8PtrTy(*context);
+    } else {
+        result = llvm::Type::getIntNTy(*context, t.bits());
+    }
+    if (t.lanes() > 1) {
+        result = VectorType::get(result, t.lanes());
+    }
+    return result;
 }
 
 void CodeGen_LLVM::optimize_module() {
@@ -3211,6 +3251,22 @@ void CodeGen_LLVM::visit(const For *op) {
     }
 }
 
+StructType *CodeGen_LLVM::build_closure_type(const Closure& closure,
+                                             llvm::StructType *buffer_t) {
+    vector<llvm::Type *> llvm_types;
+    for (const auto &v : closure.vars) {
+        llvm_types.push_back(llvm_type_of(v.second));
+    }
+    for (const auto &b : closure.buffers) {
+        llvm_types.push_back(llvm_type_of(b.second.type)->getPointerTo());
+        llvm_types.push_back(buffer_t->getPointerTo());
+    }
+
+    StructType *struct_t = StructType::create(*context, "closure_t");
+    struct_t->setBody(llvm_types, false);
+    return struct_t;
+}
+
 void CodeGen_LLVM::do_parallel_tasks(const vector<ParallelTask> &tasks) {
     Closure closure;
     for (const auto &t : tasks) {
@@ -3222,7 +3278,7 @@ void CodeGen_LLVM::do_parallel_tasks(const vector<ParallelTask> &tasks) {
     }
 
     // Allocate a closure
-    StructType *closure_t = build_closure_type(closure, buffer_t_type, context);
+    StructType *closure_t = build_closure_type(closure, buffer_t_type);
     Value *closure_ptr = create_alloca_at_entry(closure_t, 1);
 
     // Fill in the closure

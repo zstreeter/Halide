@@ -11,6 +11,7 @@ namespace llvm {
 class Value;
 class Module;
 class Function;
+class FunctionType;
 class IRBuilderDefaultInserter;
 class ConstantFolder;
 template<typename, typename> class IRBuilder;
@@ -35,9 +36,11 @@ class GlobalVariable;
 #include <string>
 #include <vector>
 
+#include "Closure.h"
 #include "IRVisitor.h"
 #include "Module.h"
 #include "ModulusRemainder.h"
+#include "Pipeline.h"
 #include "Scope.h"
 #include "Target.h"
 
@@ -69,6 +72,8 @@ public:
 
     /** Initialize internal llvm state for the enabled targets. */
     static void initialize_llvm();
+
+    llvm::FunctionType *llvm_function_type_for_signature(const ExternSignature &signature);
 
 protected:
     CodeGen_LLVM(Target t);
@@ -400,7 +405,7 @@ protected:
 
     /** Get the llvm type equivalent to the given halide type in the
      * current context. */
-    llvm::Type *llvm_type_of(Type);
+    llvm::Type *llvm_type_of(const Type& t);
 
     /** Perform an alloca at the function entrypoint. Will be cleaned
      * on function exit. */
@@ -504,6 +509,9 @@ private:
 
     virtual void codegen_predicated_vector_load(const Load *op);
     virtual void codegen_predicated_vector_store(const Store *op);
+
+    /** The llvm type of a struct containing all of the externally referenced state of a Closure. */
+    llvm::StructType *build_closure_type(const Closure &closure, llvm::StructType *buffer_t);
 };
 
 }  // namespace Internal

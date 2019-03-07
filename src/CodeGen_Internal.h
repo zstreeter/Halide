@@ -33,9 +33,6 @@ template<typename, typename> class IRBuilder;
 namespace Halide {
 namespace Internal {
 
-/** The llvm type of a struct containing all of the externally referenced state of a Closure. */
-llvm::StructType *build_closure_type(const Closure &closure, llvm::StructType *buffer_t, llvm::LLVMContext *context);
-
 /** Emit code that builds a struct containing all the externally
  * referenced state. Requires you to pass it a type and struct to fill in,
  * a scope to retrieve the llvm values from and a builder to place
@@ -56,9 +53,6 @@ void unpack_closure(const Closure &closure,
                     llvm::StructType *type,
                     llvm::Value *src,
                     llvm::IRBuilder<llvm::ConstantFolder, llvm::IRBuilderDefaultInserter> *builder);
-
-/** Get the llvm type equivalent to a given halide type */
-llvm::Type *llvm_type_of(llvm::LLVMContext *context, Halide::Type t);
 
 /** Which built-in functions require a user-context first argument? */
 bool function_takes_user_context(const std::string &name);
