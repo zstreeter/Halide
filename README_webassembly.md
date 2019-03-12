@@ -53,10 +53,15 @@ In sum: don't plan on using Halide JIT mode with Wasm unless you are working on 
 -DLLVM_TARGETS_TO_BUILD="X86;ARM;NVPTX;AArch64;Mips;PowerPC;Hexagon;WebAssembly
 ```
 
+## Enabling wasm JIT
+If you want to run `test_correctness` and other interesting parts of the Halide test suite (and you almost certainly will), you'll need to install libV8 and ensure that LLVM is built with wasm-ld:
+
 - Ensure that you have tools/lld in your LLVM build checkout:
 ```
 svn co https://llvm.org/svn/llvm-project/lld/trunk /path/to/llvm-trunk/tools/lld
 ```
+
+(You might have to do a clean build of LLVM for CMake to notice that you've added a tool.)
 
 - Install libv8 and the d8 shell tool (instructions omitted), or build from source if you prefer (instructions omitted).
 
@@ -64,24 +69,27 @@ svn co https://llvm.org/svn/llvm-project/lld/trunk /path/to/llvm-trunk/tools/lld
 
 - Set WITH_JSVM_V8=1
 
-- edit `~/.emscripten` and set LLVM_ROOT point at the LLVM you have built (if you fail with errors like `WASM_BACKEND selected but could not find lld (wasm-ld)`, you forgot to do this step)
+- To run the JIT tests, set `HL_JIT_TARGET=wasm-32-wasmrt` and run normally. (Only test_correctness has been vetted at this time.)
 
+## Enabling wasm AOT
+
+If you want to test ahead-of-time code generation (and you almost certainly will), you need to install Emscripten.
+
+- The simplest is probably via the Emscripten emsdk (https://emscripten.org/docs/getting_started/downloads.html).
+
+- After installing Emscripten, be sure that it is configured to use the version of LLVM that you configured earlier, rather than its built-in version; if you installed via `emsdk`, you need to edit `~/.emscripten` and set `LLVM_ROOT` point at the LLVM you have built. (If you fail with errors like `WASM_BACKEND selected but could not find lld (wasm-ld)`, you forgot to do this step)
+
+- To run the AOT tests, set `HL_TARGET=wasm-32-wasmrt` and build the `test_aotwasm_generator` target. (Note that the normal AOT tests won't run usefully with this target, as extra logic to run under a wasm-enabled shell is required, and some tests are blacklisted.)
 
 # Known Limitations And Caveats
 - We have only tested with EMCC_WASM_BACKEND=1; using the fastcomp backend can probably be made to work but we haven't attempted to do so.
 - Using the JIT requires that we link the `wasm-ld` tool into libHalide; with some work this need could (and should) probably be eliminated.
--
+- CMake support hasn't been investigated yet, but should be straightforward.
+- OSX and Linux-x64 have been tested. Windows hasn't; it should be supportable with some work. (Patches welcome.)
+- apps/ not investigated yet.
 
 
 TODO:
-WITH_JSVM_V8=1 HL_JIT_TARGET=wasm-32-wasmrt make test_correctness
-
-TODO:
-WITH_JSVM_V8=1 HL_TARGET=wasm-32-wasmrt make test_aotwasm_generator
-
-
-TODO:
-- better name for os
 - 64-bit args
 
 
