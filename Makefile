@@ -185,8 +185,9 @@ HEXAGON_LLVM_CONFIG_LIB=$(if $(WITH_HEXAGON), hexagon, )
 # V8_PATH and/or SPIDERMONKEY_PATH permanently in your environment, even if
 # you don't always want them linked into libHalide.
 
-export V8_INCLUDE_PATH=/Users/srj/v8/v8/include
-export V8_LIB_PATH=/Users/srj/v8/v8/out/x64.debug.static/obj
+export V8_INCLUDE_PATH=$(HOME)/v8/v8/include
+export V8_LIB_PATH=$(HOME)/v8/v8/out/x64.debug.static/obj
+export V8_LIB_EXT=.a
 
 # export V8_INCLUDE_PATH=/usr/local/Cellar/v8/7.2.502.25/include
 # export V8_LIB_PATH=/usr/local/Cellar/v8/7.2.502.25/lib
@@ -194,7 +195,7 @@ export V8_LIB_PATH=/Users/srj/v8/v8/out/x64.debug.static/obj
 
 V8_INCLUDE_PATH ?= /V8_INCLUDE_PATH/is/undefined/
 V8_LIB_PATH ?= /V8_LIB_PATH/is/undefined/
-V8_LIB_EXT ?= .a
+V8_LIB_EXT ?= $(SHARED_EXT)
 JSVM_V8_CXX_FLAGS=$(if $(WITH_JSVM_V8), -DWITH_JSVM_V8 -I$(V8_INCLUDE_PATH))
 JSVM_V8_LDFLAGS=$(if $(WITH_JSVM_V8), $(V8_LIB_PATH)/lib*$(V8_LIB_EXT))
 

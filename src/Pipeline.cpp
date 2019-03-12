@@ -351,7 +351,7 @@ vector<Argument> Pipeline::infer_arguments(Stmt body) {
 class FindExterns : public IRGraphVisitor {
     using IRGraphVisitor::visit;
 
-    void visit(const Call *op) {
+    void visit(const Call *op) override {
         IRGraphVisitor::visit(op);
 
         if ((op->call_type == Call::Extern || op->call_type == Call::PureExtern) && externs.count(op->name) == 0) {

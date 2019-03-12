@@ -47,16 +47,31 @@ Note that while some of these limitations may be improved in the future, some ar
 In sum: don't plan on using Halide JIT mode with Wasm unless you are working on the Halide library itself.
 
 # To Use This Branch:
-- add WebAssembly to your llvm build targets
-- install and build wasm-ld
-- install v8 and d8
-- set V8_INCLUDE_PATH, V8_LIB_PATH, V8_LIB_EXT
-- set WITH_JSVM_V8=1
+
+- Ensure WebAssembly is in LLVM_TARGETS_TO_BUILD:
+```
+-DLLVM_TARGETS_TO_BUILD="X86;ARM;NVPTX;AArch64;Mips;PowerPC;Hexagon;WebAssembly
+```
+
+- Ensure that you have tools/lld in your LLVM build checkout:
+```
+svn co https://llvm.org/svn/llvm-project/lld/trunk /path/to/llvm-trunk/tools/lld
+```
+
+- Install libv8 and the d8 shell tool (instructions omitted), or build from source if you prefer (instructions omitted).
+
+- Set V8_INCLUDE_PATH, V8_LIB_PATH to point to the paths for V8 shared libraries and include files. (If you build from source and are linking static libraries instead of dynamic libraries, also set V8_LIB_EXT to `.a` or similar.)
+
+- Set WITH_JSVM_V8=1
+
 - edit `~/.emscripten` and set LLVM_ROOT point at the LLVM you have built (if you fail with errors like `WASM_BACKEND selected but could not find lld (wasm-ld)`, you forgot to do this step)
 
 
-# Caveats
-- we have only tested with EMCC_WASM_BACKEND=1; using the fastcomp backend can probably be made to work but we haven't done so
+# Known Limitations And Caveats
+- We have only tested with EMCC_WASM_BACKEND=1; using the fastcomp backend can probably be made to work but we haven't attempted to do so.
+- Using the JIT requires that we link the `wasm-ld` tool into libHalide; with some work this need could (and should) probably be eliminated.
+-
+
 
 TODO:
 WITH_JSVM_V8=1 HL_JIT_TARGET=wasm-32-wasmrt make test_correctness

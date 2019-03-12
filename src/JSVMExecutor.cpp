@@ -512,7 +512,7 @@ wasm32_ptr_t v8_WasmMemoryObject_malloc(const Local<Context> &context, size_t si
             ->Get(context, context->GetEmbedderData(kString_grow)).ToLocalChecked().As<Object>()
             ->CallAsFunction(context, memory_value, 1, args).ToLocalChecked()->Int32Value(context).ToChecked();
         wdebug(0)<<"grow result: "<<result<<"\n";
-        internal_assert(result == (bdmalloc->get_total_size() / kWasmPageSize));
+        internal_assert(result == (int) (bdmalloc->get_total_size() / kWasmPageSize));
 
         Local<Object> buffer_string = context->GetEmbedderData(kString_buffer).As<Object>();
         Local<ArrayBuffer> wasm_memory = Local<ArrayBuffer>::Cast(memory_value->Get(buffer_string));
@@ -1018,7 +1018,7 @@ float fast_inverse_f32(float x) {
 }
 
 float fast_inverse_sqrt_f32(float x) {
-    return 1.0f / std::sqrtf(x);
+    return 1.0f / std::sqrt(x);
 }
 
 template<typename T, T some_func(T) >
