@@ -45,13 +45,10 @@ define alwayslink
 endef
 endif
 
-# TODO: --experimental-wasm-simd
-D8 = d8 --experimental-wasm-se  --experimental-wasm-bulk-memory --experimental-wasm-simd
-
 SHELL = bash
 CXX ?= g++
 EMCC ?= emcc
-WASM_SHELL ?= $(D8)
+WASM_SHELL ?= d8
 PREFIX ?= /usr/local
 LLVM_CONFIG ?= llvm-config
 LLVM_COMPONENTS= $(shell $(LLVM_CONFIG) --components)

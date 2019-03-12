@@ -794,8 +794,14 @@ JITUserContext *check_jit_user_context(JITUserContext *jit_user_context) {
     return jit_user_context;
 }
 
+// Some internal code can call halide_error(null, ...), so this needs to be resilient to that.
+// Callers must expect null and not crash.
 JITUserContext *get_jit_user_context(const Local<Context> &context, const Local<Value> &arg) {
-    internal_assert(arg->Int32Value(context).ToChecked() == kMagicJitUserContextValue);
+    int32_t ucon_magic = arg->Int32Value(context).ToChecked();
+    if (ucon_magic == 0) {
+        return nullptr;
+    }
+    internal_assert(ucon_magic == kMagicJitUserContextValue);
     JITUserContext *jit_user_context = (JITUserContext *) context->GetAlignedPointerFromEmbedderData(kJitUserContext);
     internal_assert(jit_user_context);
     return jit_user_context;
@@ -814,7 +820,7 @@ void wasm_jit_halide_print_callback(const v8::FunctionCallbackInfo<v8::Value>& a
     uint8_t *p = get_wasm_memory_base(context);
     const char *str = (const char *) p + str_address;
 
-    if (jit_user_context->handlers.custom_print != NULL) {
+    if (jit_user_context && jit_user_context->handlers.custom_print != NULL) {
         (*jit_user_context->handlers.custom_print)(jit_user_context, str);
         debug(0) << str;
     } else {
@@ -835,7 +841,7 @@ void wasm_jit_halide_error_callback(const v8::FunctionCallbackInfo<v8::Value>& a
     uint8_t *p = get_wasm_memory_base(context);
     const char *str = (const char *) p + str_address;
 
-    if (jit_user_context->handlers.custom_error != NULL) {
+    if (jit_user_context && jit_user_context->handlers.custom_error != NULL) {
         (*jit_user_context->handlers.custom_error)(jit_user_context, str);
     } else {
         halide_runtime_error << str;
@@ -880,7 +886,7 @@ void wasm_jit_halide_trace_helper_callback(const v8::FunctionCallbackInfo<v8::Va
     event.dimensions = dimensions;
 
     int result = 0;
-    if (jit_user_context->handlers.custom_trace != NULL) {
+    if (jit_user_context && jit_user_context->handlers.custom_trace != NULL) {
         result = (*jit_user_context->handlers.custom_trace)(jit_user_context, &event);
     } else {
         debug(0) << "Dropping trace event due to lack of trace handler.\n";
