@@ -1509,14 +1509,14 @@ int WasmModuleContents::run(const std::vector<std::pair<Argument, const void *>>
     for (size_t i = 0; i < args.size(); i++) {
         const Argument &arg = args[i].first;
         if (arg.is_buffer()) {
-wdebug(0)<<"arg "<<i<<" "<<arg.name<<" is buffer\n";
+            wdebug(0)<<"arg "<<i<<" "<<arg.name<<" is buffer\n";
             halide_buffer_t *buf = (halide_buffer_t *) const_cast<void*>(args[i].second);
             internal_assert(buf);
             wasm32_ptr_t wbuf = hostbuf_to_wasmbuf(context, buf);
             wbufs[i] = wbuf;
             js_args.push_back(wrap_scalar(context, wbuf));
         } else {
-wdebug(0)<<"arg "<<i<<" "<<arg.name<<" is scalar "<<arg.type.bits()<<"\n";
+            wdebug(0)<<"arg "<<i<<" "<<arg.name<<" is scalar "<<arg.type.bits()<<"\n";
             if (arg.name == "__user_context") {
                 js_args.push_back(wrap_scalar(context, kMagicJitUserContextValue));
                 JITUserContext *jit_user_context = check_jit_user_context(*(JITUserContext **) const_cast<void *>(args[i].second));
