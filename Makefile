@@ -125,8 +125,8 @@ endif
 WITH_EXCEPTIONS ?=
 WITH_LLVM_INSIDE_SHARED_LIBHALIDE ?= not-empty
 
-WITH_JSVM_V8 ?=
-WITH_JSVM_SPIDERMONKEY ?=
+WITH_V8 ?=
+WITH_SPIDERMONKEY ?=
 
 # If HL_TARGET or HL_JIT_TARGET aren't set, use host
 HL_TARGET ?= host
@@ -177,30 +177,22 @@ HEXAGON_LLVM_CONFIG_LIB=$(if $(WITH_HEXAGON), hexagon, )
 
 # These define paths to prebuilt instances of V8 and/or SpiderMonkey, for
 # use when JIT-testing WASM and/or JavaScript Halide output. Note that
-# you must also define WITH_JSVM_V8 and/or WITH_JSVM_SPIDERMONKEY to have
+# you must also define WITH_V8 and/or WITH_SPIDERMONKEY to have
 # the relevant JavaScript VM linked in with support, so it's fine to declare
 # V8_PATH and/or SPIDERMONKEY_PATH permanently in your environment, even if
 # you don't always want them linked into libHalide.
 
-export V8_INCLUDE_PATH=$(HOME)/v8/v8/include
-export V8_LIB_PATH=$(HOME)/v8/v8/out/x64.debug.static/obj
-export V8_LIB_EXT=.a
-
-# export V8_INCLUDE_PATH=/usr/local/Cellar/v8/7.2.502.25/include
-# export V8_LIB_PATH=/usr/local/Cellar/v8/7.2.502.25/lib
-# export V8_LIB_EXT=.dylib
-
 V8_INCLUDE_PATH ?= /V8_INCLUDE_PATH/is/undefined/
 V8_LIB_PATH ?= /V8_LIB_PATH/is/undefined/
 V8_LIB_EXT ?= $(SHARED_EXT)
-JSVM_V8_CXX_FLAGS=$(if $(WITH_JSVM_V8), -DWITH_JSVM_V8 -I$(V8_INCLUDE_PATH))
-JSVM_V8_LDFLAGS=$(if $(WITH_JSVM_V8), $(V8_LIB_PATH)/lib*$(V8_LIB_EXT))
+JSVM_V8_CXX_FLAGS=$(if $(WITH_V8), -DWITH_JSVM_V8 -I$(V8_INCLUDE_PATH))
+JSVM_V8_LDFLAGS=$(if $(WITH_V8), $(V8_LIB_PATH)/lib*$(V8_LIB_EXT))
 
 # TODO: We should support SpiderMonkey here too, in addition to V8
 SPIDERMONKEY_PATH ?= /SPIDERMONKEY_PATH/is/undefined/
-JSVM_SPIDERMONKEY_CXX_FLAGS=$(if $(WITH_JSVM_SPIDERMONKEY), -DWITH_JSVM_SPIDERMONKEY -I$(SPIDERMONKEY_PATH)/include)
+JSVM_SPIDERMONKEY_CXX_FLAGS=$(if $(WITH_SPIDERMONKEY), -DWITH_SPIDERMONKEY -I$(SPIDERMONKEY_PATH)/include)
 JSVM_SPIDERMONKEY_LIB_PATHS="/error/SpiderMonkey/embedding/is/not/yet/supported"
-JSVM_SPIDERMONKEY_LDFLAGS=$(if $(WITH_JSVM_SPIDERMONKEY), $(JSVM_SPIDERMONKEY_LIB_PATHS))
+JSVM_SPIDERMONKEY_LDFLAGS=$(if $(WITH_SPIDERMONKEY), $(JSVM_SPIDERMONKEY_LIB_PATHS))
 
 JSVM_CXX_FLAGS=$(JSVM_V8_CXX_FLAGS) $(JSVM_SPIDERMONKEY_CXX_FLAGS)
 JSVM_LDFLAGS=$(JSVM_V8_LDFLAGS) $(JSVM_SPIDERMONKEY_LDFLAGS)

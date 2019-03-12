@@ -238,7 +238,7 @@ using JITExternMap = std::map<std::string, Halide::JITExtern>;
 
 }  // namespace
 
-#if WITH_JSVM_V8
+#if WITH_V8
 
 #include "v8.h"
 #include "libplatform/libplatform.h"
@@ -1250,7 +1250,7 @@ std::vector<char> link_wasm(const Target &target, const void *source, size_t sou
 }  // namespace Internal
 }  // namespace Halide
 
-#endif  // WITH_JSVM_V8
+#endif  // WITH_V8
 
 
 
@@ -1266,7 +1266,7 @@ struct JSVMModuleContents {
     JITModule trampolines;
     BDMalloc bdmalloc;
 
-#ifdef WITH_JSVM_V8
+#ifdef WITH_V8
     v8::Isolate *isolate = nullptr;
     v8::Persistent<v8::Context> v8_context;
     v8::Persistent<v8::Function> v8_function;
@@ -1300,7 +1300,7 @@ JSVMModuleContents::JSVMModuleContents(
 
     wdebug(0) << "Compiling JSVM function " << fn_name << "\n";
 
-#ifdef WITH_JSVM_V8
+#ifdef WITH_V8
     static std::once_flag init_v8_once;
     std::call_once(init_v8_once, []() {
         // Initialize V8.
@@ -1487,7 +1487,7 @@ JSVMModuleContents::JSVMModuleContents(
 }
 
 int JSVMModuleContents::run(const std::vector<std::pair<Argument, const void *>> &args) {
-#ifdef WITH_JSVM_V8
+#ifdef WITH_V8
     Locker locker(isolate);
     Isolate::Scope isolate_scope(isolate);
 
@@ -1564,7 +1564,7 @@ wdebug(0)<<"arg "<<i<<" "<<arg.name<<" is scalar "<<arg.type.bits()<<"\n";
 }
 
 JSVMModuleContents::~JSVMModuleContents() {
-#ifdef WITH_JSVM_V8
+#ifdef WITH_V8
     if (isolate != nullptr) {
         // Not sure if this is required...
         {
@@ -1593,7 +1593,7 @@ void destroy<JSVMModuleContents>(const JSVMModuleContents *p) {
 
 /*static*/
 bool JSVMModule::can_jit_target(const Target &target) {
-    #if WITH_JSVM_V8 || WITH_JSVM_SPIDERMONKEY
+    #if WITH_V8 || WITH_JSVM_SPIDERMONKEY
     if (target.arch == Target::WebAssembly) {
         return true;
     }
@@ -1610,7 +1610,7 @@ JSVMModule JSVMModule::compile(
   const JITExternMap &jit_externs,
   const std::vector<JITModule> &extern_deps
 ) {
-#if !defined(WITH_JSVM_V8) && !defined(WITH_JSVM_SPIDERMONKEY)
+#if !defined(WITH_V8) && !defined(WITH_JSVM_SPIDERMONKEY)
     user_error << "Cannot run JITted JavaScript without configuring a JavaScript engine.";
     return JSVMModule();
 #endif

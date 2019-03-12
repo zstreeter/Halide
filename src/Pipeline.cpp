@@ -483,7 +483,7 @@ void Pipeline::compile_jit(const Target &target_arg) {
 
     // TODO: see if JS and non-JS can share more code.
     if (target.arch == Target::WebAssembly) {
-    #if defined(WITH_JSVM_V8) || defined(WITH_JSVM_SPIDERMONKEY)
+    #if defined(WITH_V8) || defined(WITH_JSVM_SPIDERMONKEY)
         if (contents->jsvm_module.contents.defined()) {
             return;
         }
@@ -965,7 +965,7 @@ Pipeline::make_externs_jit_module(const Target &target,
 
 int Pipeline::call_jit_code(const Target &target, const JITCallArgs &args) {
     int exit_status = 0;
-    #if defined(WITH_JSVM_V8) || defined(WITH_JSVM_SPIDERMONKEY)
+    #if defined(WITH_V8) || defined(WITH_JSVM_SPIDERMONKEY)
     if (target.arch == Target::WebAssembly) {
         internal_assert(contents->jsvm_module.contents.defined());
 

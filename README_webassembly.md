@@ -67,7 +67,7 @@ svn co https://llvm.org/svn/llvm-project/lld/trunk /path/to/llvm-trunk/tools/lld
 
 - Set V8_INCLUDE_PATH, V8_LIB_PATH to point to the paths for V8 shared libraries and include files. (If you build from source and are linking static libraries instead of dynamic libraries, also set V8_LIB_EXT to `.a` or similar.)
 
-- Set WITH_JSVM_V8=1
+- Set WITH_V8=1
 
 - To run the JIT tests, set `HL_JIT_TARGET=wasm-32-wasmrt` and run normally. The test suites which we have vetted to work include correctness, performance, error, and warning. (Some of the others could likely be made to work with modest effort.)
 
