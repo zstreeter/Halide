@@ -940,11 +940,10 @@ public:
      * normally happens on the first call to realize. If you're
      * running your halide pipeline inside time-sensitive code and
      * wish to avoid including the time taken to compile a pipeline,
-     * then you can call this ahead of time. Returns the raw function
-     * pointer to the compiled pipeline. Default is to use the Target
+     * then you can call this ahead of time. Default is to use the Target
      * returned from Halide::get_jit_target_from_environment()
      */
-    void *compile_jit(const Target &target = get_jit_target_from_environment());
+    void compile_jit(const Target &target = get_jit_target_from_environment());
 
     /** Set the error handler function that be called in the case of
      * runtime errors during halide pipelines. If you are compiling
@@ -2387,7 +2386,7 @@ HALIDE_NO_USER_CODE_INLINE T evaluate_may_gpu(Expr e) {
         << "Can't evaluate expression "
         << e << " of type " << e.type()
         << " as a scalar of type " << type_of<T>() << "\n";
-    Func f;
+    Func f("zzz_xxx");
     f() = e;
     Internal::schedule_scalar(f);
     Buffer<T> im = f.realize();

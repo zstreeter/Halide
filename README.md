@@ -53,13 +53,14 @@ If you want to build it yourself, first check it out from subversion:
 
     % svn co https://llvm.org/svn/llvm-project/llvm/branches/release_60 llvm6.0
     % svn co https://llvm.org/svn/llvm-project/cfe/branches/release_60 llvm6.0/tools/clang
+    % svn co https://llvm.org/svn/llvm-project/lld/branches/release_60 llvm6.0/tools/lld
 
 Then build it like so:
 
     % cd llvm6.0
     % mkdir build
     % cd build
-    % cmake -DLLVM_ENABLE_TERMINFO=OFF -DLLVM_TARGETS_TO_BUILD="X86;ARM;NVPTX;AArch64;Mips;PowerPC" -DLLVM_ENABLE_ASSERTIONS=ON -DCMAKE_BUILD_TYPE=Release ..
+    % cmake -DLLVM_ENABLE_TERMINFO=OFF -DLLVM_TARGETS_TO_BUILD="X86;ARM;NVPTX;AArch64;Mips;PowerPC;Hexagon;WebAssembly" -DLLVM_ENABLE_ASSERTIONS=ON -DCMAKE_BUILD_TYPE=Release ..
     % make -j8
 
 then to point Halide to it:
@@ -337,17 +338,19 @@ To build and run an example app using the Hexagon target,
   2. Download and install the Hexagon SDK and version 8.0 Hexagon Tools
   3. Build and run an example for Hexagon HVX
 
-#### 1. Obtain and build LLVM and clang v5.0 or later from llvm.org
+#### 1. Obtain and build LLVM and clang v6.0 or later from llvm.org
 The Hexagon backend is currently under development. So it's best to use trunk llvm.
 These are the same instructions as above for building Clang/LLVM, but for trunk
-Clang/LLVM instead of 5.0.
+Clang/LLVM instead of 6.0.
 
     cd <path to llvm>
     svn co http://llvm.org/svn/llvm-project/llvm/trunk .
     svn co http://llvm.org/svn/llvm-project/cfe/trunk ./tools/clang
+    svn co http://llvm.org/svn/llvm-project/lld/trunk ./tools/lld
     # Or:
     #    git clone http://llvm.org/git/llvm.git .
     #    git clone http://llvm.org/git/clang.git llvm/tools
+    #    git clone http://llvm.org/git/lld.git llvm/tools
     mkdir build
     cd build
     cmake -DLLVM_ENABLE_TERMINFO=OFF -DLLVM_TARGETS_TO_BUILD="X86;ARM;NVPTX;AArch64;Mips;PowerPC;Hexagon" -DLLVM_ENABLE_ASSERTIONS=ON -DCMAKE_BUILD_TYPE=Release ..

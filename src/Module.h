@@ -127,8 +127,9 @@ public:
 
     /** Compile a halide Module to in-memory object code. Currently
      * only supports LLVM based compilation, but should be extended to
-     * handle source code backends. */
-    Buffer<uint8_t> compile_to_buffer() const;
+     * handle source code backends. Optionally convert all weak-linked symbols
+     * to strongly-linked symbols. */
+    Buffer<uint8_t> compile_to_buffer(bool make_weak_symbols_strong = false) const;
 
     /** Return a new module with all submodules compiled to buffers on
      * on the result Module. */

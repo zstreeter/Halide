@@ -7,6 +7,7 @@
 #include "Debug.h"
 #include "DeviceInterface.h"
 #include "Error.h"
+#include "JSVMExecutor.h"
 #include "LLVM_Headers.h"
 #include "Util.h"
 #include "DeviceInterface.h"
@@ -267,6 +268,7 @@ const std::map<std::string, Target::OS> os_name_map = {
     {"ios", Target::IOS},
     {"qurt", Target::QuRT},
     {"noos", Target::NoOS},
+    {"wasmrt", Target::WebAssemblySingleThreadedRuntime}
 };
 
 bool lookup_os(const std::string &tok, Target::OS &result) {
@@ -285,6 +287,7 @@ const std::map<std::string, Target::Arch> arch_name_map = {
     {"mips", Target::MIPS},
     {"powerpc", Target::POWERPC},
     {"hexagon", Target::Hexagon},
+    {"wasm", Target::WebAssembly},
 };
 
 bool lookup_arch(const std::string &tok, Target::Arch &result) {
@@ -400,7 +403,7 @@ Target get_jit_target_from_environment() {
     } else {
         Target t(target);
         t.set_feature(Target::JIT);
-        user_assert(t.os == host.os && t.arch == host.arch && t.bits == host.bits)
+        user_assert((t.os == host.os && t.arch == host.arch && t.bits == host.bits) || Internal::JSVMModule::can_jit_target(t))
             << "HL_JIT_TARGET must match the host OS, architecture, and bit width.\n"
             << "HL_JIT_TARGET was " << target << ". "
             << "Host is " << host.to_string() << ".\n";
@@ -611,6 +614,9 @@ bool Target::supported() const {
 #endif
 #if !defined(WITH_HEXAGON)
     bad |= arch == Target::Hexagon;
+#endif
+#if !defined(WITH_WEBASSEMBLY)
+    bad |= arch == Target::WebAssembly;
 #endif
 #if !defined(WITH_PTX)
     bad |= has_feature(Target::CUDA);

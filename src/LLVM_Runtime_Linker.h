@@ -30,6 +30,8 @@ std::unique_ptr<llvm::Module> get_initial_module_for_ptx_device(Target, llvm::LL
 void add_bitcode_to_module(llvm::LLVMContext *context, llvm::Module &module,
                            const std::vector<uint8_t> &bitcode, const std::string &name);
 
+std::unique_ptr<llvm::Module> get_wasm_jit_module(const Target &t, llvm::LLVMContext *c);
+
 }  // namespace Internal
 }  // namespace Halide
 

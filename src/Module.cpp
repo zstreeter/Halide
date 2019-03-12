@@ -347,8 +347,34 @@ Module link_modules(const std::string &name, const std::vector<Module> &modules)
     return output;
 }
 
+namespace {
 
-Buffer<uint8_t> Module::compile_to_buffer() const {
+void convert_weak_to_strong(llvm::GlobalValue &gv) {
+    llvm::GlobalValue::LinkageTypes linkage = gv.getLinkage();
+    if (linkage == llvm::GlobalValue::WeakAnyLinkage) {
+        gv.setLinkage(llvm::GlobalValue::LinkOnceAnyLinkage);
+    } else if (linkage == llvm::GlobalValue::WeakODRLinkage) {
+        gv.setLinkage(llvm::GlobalValue::LinkOnceODRLinkage);
+    } else if (linkage == llvm::GlobalValue::ExternalWeakLinkage) {
+        gv.setLinkage(llvm::GlobalValue::ExternalLinkage);
+    }
+}
+
+void convert_weak_symbols_to_strong(llvm::Module &module) {
+    // Enumerate the global variables.
+    for (auto &gv : module.globals()) {
+        convert_weak_to_strong(gv);
+    }
+
+    // Enumerate the functions.
+    for (auto &f : module) {
+        convert_weak_to_strong(f);
+    }
+}
+
+}  // namespace
+
+Buffer<uint8_t> Module::compile_to_buffer(bool make_weak_symbols_strong) const {
     // TODO: This Hexagon specific code should be removed as soon as possible.
     // This may involve adding more general support for post-processing and
     // a way of specifying to use it.
@@ -358,6 +384,9 @@ Buffer<uint8_t> Module::compile_to_buffer() const {
 
     llvm::LLVMContext context;
     std::unique_ptr<llvm::Module> llvm_module(compile_module_to_llvm_module(*this, context));
+    if (make_weak_symbols_strong) {
+        convert_weak_symbols_to_strong(*llvm_module);
+    }
 
     llvm::SmallVector<char, 4096> object;
     llvm::raw_svector_ostream object_stream(object);
