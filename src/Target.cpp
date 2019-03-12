@@ -7,10 +7,9 @@
 #include "Debug.h"
 #include "DeviceInterface.h"
 #include "Error.h"
-#include "JSVMExecutor.h"
 #include "LLVM_Headers.h"
 #include "Util.h"
-#include "DeviceInterface.h"
+#include "WasmExecutor.h"
 
 #if defined(__powerpc__) && defined(__linux__)
 // This uses elf.h and must be included after "LLVM_Headers.h", which
@@ -404,7 +403,7 @@ Target get_jit_target_from_environment() {
     } else {
         Target t(target);
         t.set_feature(Target::JIT);
-        user_assert((t.os == host.os && t.arch == host.arch && t.bits == host.bits) || Internal::JSVMModule::can_jit_target(t))
+        user_assert((t.os == host.os && t.arch == host.arch && t.bits == host.bits) || Internal::WasmModule::can_jit_target(t))
             << "HL_JIT_TARGET must match the host OS, architecture, and bit width.\n"
             << "HL_JIT_TARGET was " << target << ". "
             << "Host is " << host.to_string() << ".\n";

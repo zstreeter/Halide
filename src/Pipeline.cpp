@@ -7,7 +7,6 @@
 #include "Func.h"
 #include "IRVisitor.h"
 #include "InferArguments.h"
-#include "JSVMExecutor.h"
 #include "LLVM_Headers.h"
 #include "LLVM_Output.h"
 #include "Lower.h"
@@ -16,6 +15,7 @@
 #include "Pipeline.h"
 #include "PrintLoopNest.h"
 #include "RealizationOrder.h"
+#include "WasmExecutor.h"
 
 using namespace Halide::Internal;
 
@@ -61,7 +61,7 @@ struct PipelineContents {
     Target jit_target;
 
     // Cached compiled JavaScript and/or wasm if defined */
-    JSVMModule jsvm_module;
+    WasmModule wasm_module;
 
     /** Clear all cached state */
     void invalidate_cache() {
@@ -69,7 +69,7 @@ struct PipelineContents {
         jit_module = JITModule();
         jit_target = Target();
         inferred_args.clear();
-        jsvm_module = JSVMModule();
+        wasm_module = WasmModule();
     }
 
     // The outputs
@@ -483,12 +483,12 @@ void Pipeline::compile_jit(const Target &target_arg) {
 
     // TODO: see if JS and non-JS can share more code.
     if (target.arch == Target::WebAssembly) {
-    #if defined(WITH_V8) || defined(WITH_JSVM_SPIDERMONKEY)
-        if (contents->jsvm_module.contents.defined()) {
+    #if defined(WITH_V8) || defined(WITH_SPIDERMONKEY)
+        if (contents->wasm_module.contents.defined()) {
             return;
         }
     #else
-        user_error << "Cannot JIT wasm without a JSVM execution engine (e.g. V8) configured at compile time.\n";
+        user_error << "Cannot JIT wasm without a Wasm execution engine (e.g. V8) configured at compile time.\n";
     #endif
     } else {
         // If we're re-jitting for the same target, we can just keep the
@@ -535,7 +535,7 @@ void Pipeline::compile_jit(const Target &target_arg) {
           debug(0) << "Found extern: " << p.first << "\n";
         }
 
-        contents->jsvm_module = JSVMModule::compile(target, wasm_code.data(), wasm_code.size_in_bytes(),
+        contents->wasm_module = WasmModule::compile(target, wasm_code.data(), wasm_code.size_in_bytes(),
             contents->module.name(), lowered_externs, make_externs_jit_module(target, lowered_externs));
     } else {
         auto f = module.get_function_by_name(name);
@@ -847,7 +847,7 @@ void Pipeline::prepare_jit_call_arguments(RealizationArg &outputs, const Target 
 
     JITModule &compiled_module = contents->jit_module;
     internal_assert(compiled_module.argv_function() ||
-                    contents->jsvm_module.contents.defined());
+                    contents->wasm_module.contents.defined());
 
     const bool no_param_map = &param_map == &ParamMap::empty_map();
 
@@ -965,17 +965,17 @@ Pipeline::make_externs_jit_module(const Target &target,
 
 int Pipeline::call_jit_code(const Target &target, const JITCallArgs &args) {
     int exit_status = 0;
-    #if defined(WITH_V8) || defined(WITH_JSVM_SPIDERMONKEY)
+    #if defined(WITH_V8) || defined(WITH_SPIDERMONKEY)
     if (target.arch == Target::WebAssembly) {
-        internal_assert(contents->jsvm_module.contents.defined());
+        internal_assert(contents->wasm_module.contents.defined());
 
-        std::vector<std::pair<Argument, const void *>> jsvm_args;
+        std::vector<std::pair<Argument, const void *>> wasm_args;
         for (size_t i = 0; i < args.size; i++) {
-            jsvm_args.push_back(std::make_pair(args.store_args[i], args.store[i]));
+            wasm_args.push_back(std::make_pair(args.store_args[i], args.store[i]));
         }
 
         Internal::debug(2) << "Calling jitted wasm function\n";
-        exit_status = contents->jsvm_module.run(jsvm_args);
+        exit_status = contents->wasm_module.run(wasm_args);
         Internal::debug(2) << "Back from jitted wasm function. Exit status was " << exit_status << "\n";
     } else
     #endif

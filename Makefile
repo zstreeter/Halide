@@ -185,14 +185,14 @@ HEXAGON_LLVM_CONFIG_LIB=$(if $(WITH_HEXAGON), hexagon, )
 V8_INCLUDE_PATH ?= /V8_INCLUDE_PATH/is/undefined/
 V8_LIB_PATH ?= /V8_LIB_PATH/is/undefined/
 V8_LIB_EXT ?= $(SHARED_EXT)
-JSVM_V8_CXX_FLAGS=$(if $(WITH_V8), -DWITH_JSVM_V8 -I$(V8_INCLUDE_PATH))
-JSVM_V8_LDFLAGS=$(if $(WITH_V8), $(V8_LIB_PATH)/lib*$(V8_LIB_EXT))
+V8_CXX_FLAGS=$(if $(WITH_V8), -DWITH_V8 -I$(V8_INCLUDE_PATH))
+V8_LDFLAGS=$(if $(WITH_V8), $(V8_LIB_PATH)/lib*$(V8_LIB_EXT))
 
 # TODO: We should support SpiderMonkey here too, in addition to V8
 SPIDERMONKEY_PATH ?= /SPIDERMONKEY_PATH/is/undefined/
-JSVM_SPIDERMONKEY_CXX_FLAGS=$(if $(WITH_SPIDERMONKEY), -DWITH_SPIDERMONKEY -I$(SPIDERMONKEY_PATH)/include)
-JSVM_SPIDERMONKEY_LIB_PATHS="/error/SpiderMonkey/embedding/is/not/yet/supported"
-JSVM_SPIDERMONKEY_LDFLAGS=$(if $(WITH_SPIDERMONKEY), $(JSVM_SPIDERMONKEY_LIB_PATHS))
+SPIDERMONKEY_CXX_FLAGS=$(if $(WITH_SPIDERMONKEY), -DWITH_SPIDERMONKEY -I$(SPIDERMONKEY_PATH)/include)
+SPIDERMONKEY_LIB_PATHS="/error/SpiderMonkey/embedding/is/not/yet/supported"
+SPIDERMONKEY_LDFLAGS=$(if $(WITH_SPIDERMONKEY), $(SPIDERMONKEY_LIB_PATHS))
 
 JSVM_CXX_FLAGS=$(JSVM_V8_CXX_FLAGS) $(JSVM_SPIDERMONKEY_CXX_FLAGS)
 JSVM_LDFLAGS=$(JSVM_V8_LDFLAGS) $(JSVM_SPIDERMONKEY_LDFLAGS)
@@ -495,7 +495,7 @@ SOURCE_FILES = \
   IROperator.cpp \
   IRPrinter.cpp \
   IRVisitor.cpp \
-  JSVMExecutor.cpp \
+  WasmExecutor.cpp \
   JITModule.cpp \
   Lerp.cpp \
   LICM.cpp \
@@ -666,7 +666,7 @@ HEADER_FILES = \
   IROperator.h \
   IRPrinter.h \
   IRVisitor.h \
-  JSVMExecutor.h \
+  WasmExecutor.h \
   JITModule.h \
   Lambda.h \
   Lerp.h \

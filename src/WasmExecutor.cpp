@@ -1,8 +1,9 @@
+#include "WasmExecutor.h"
+
 #include "Error.h"
 #include "Func.h"
 #include "ImageParam.h"
 #include "JITModule.h"
-#include "JSVMExecutor.h"
 #include "LLVM_Headers.h"
 #include "LLVM_Output.h"
 #include "LLVM_Runtime_Linker.h"
@@ -1257,7 +1258,7 @@ std::vector<char> link_wasm(const Target &target, const void *source, size_t sou
 namespace Halide {
 namespace Internal {
 
-struct JSVMModuleContents {
+struct WasmModuleContents {
     mutable RefCount ref_count;
 
     const Target target;
@@ -1272,7 +1273,7 @@ struct JSVMModuleContents {
     v8::Persistent<v8::Function> v8_function;
 #endif
 
-    JSVMModuleContents(
+    WasmModuleContents(
         const Target &target,
         const void *source,
         size_t source_len,
@@ -1283,10 +1284,10 @@ struct JSVMModuleContents {
 
     int run(const std::vector<std::pair<Argument, const void *>> &args);
 
-    ~JSVMModuleContents();
+    ~WasmModuleContents();
 };
 
-JSVMModuleContents::JSVMModuleContents(
+WasmModuleContents::WasmModuleContents(
     const Target &target,
     const void *source,
     size_t source_len,
@@ -1298,7 +1299,7 @@ JSVMModuleContents::JSVMModuleContents(
     extern_deps(extern_deps),
     trampolines(JITModule::make_trampolines_module(get_host_target(), jit_externs, kTrampolineSuffix, extern_deps)) {
 
-    wdebug(0) << "Compiling JSVM function " << fn_name << "\n";
+    wdebug(0) << "Compiling wasm function " << fn_name << "\n";
 
 #ifdef WITH_V8
     static std::once_flag init_v8_once;
@@ -1486,7 +1487,7 @@ JSVMModuleContents::JSVMModuleContents(
 #endif
 }
 
-int JSVMModuleContents::run(const std::vector<std::pair<Argument, const void *>> &args) {
+int WasmModuleContents::run(const std::vector<std::pair<Argument, const void *>> &args) {
 #ifdef WITH_V8
     Locker locker(isolate);
     Isolate::Scope isolate_scope(isolate);
@@ -1563,7 +1564,7 @@ wdebug(0)<<"arg "<<i<<" "<<arg.name<<" is scalar "<<arg.type.bits()<<"\n";
     return -1;
 }
 
-JSVMModuleContents::~JSVMModuleContents() {
+WasmModuleContents::~WasmModuleContents() {
 #ifdef WITH_V8
     if (isolate != nullptr) {
         // Not sure if this is required...
@@ -1582,18 +1583,18 @@ JSVMModuleContents::~JSVMModuleContents() {
 
 
 template<>
-RefCount &ref_count<JSVMModuleContents>(const JSVMModuleContents *p) {
+RefCount &ref_count<WasmModuleContents>(const WasmModuleContents *p) {
     return p->ref_count;
 }
 
 template<>
-void destroy<JSVMModuleContents>(const JSVMModuleContents *p) {
+void destroy<WasmModuleContents>(const WasmModuleContents *p) {
     delete p;
 }
 
 /*static*/
-bool JSVMModule::can_jit_target(const Target &target) {
-    #if WITH_V8 || WITH_JSVM_SPIDERMONKEY
+bool WasmModule::can_jit_target(const Target &target) {
+    #if WITH_V8 || WITH_SPIDERMONKEY
     if (target.arch == Target::WebAssembly) {
         return true;
     }
@@ -1602,7 +1603,7 @@ bool JSVMModule::can_jit_target(const Target &target) {
 }
 
 /*static*/
-JSVMModule JSVMModule::compile(
+WasmModule WasmModule::compile(
   const Target &target,
   const void *source,
   size_t source_len,
@@ -1610,18 +1611,18 @@ JSVMModule JSVMModule::compile(
   const JITExternMap &jit_externs,
   const std::vector<JITModule> &extern_deps
 ) {
-#if !defined(WITH_V8) && !defined(WITH_JSVM_SPIDERMONKEY)
+#if !defined(WITH_V8) && !defined(WITH_SPIDERMONKEY)
     user_error << "Cannot run JITted JavaScript without configuring a JavaScript engine.";
-    return JSVMModule();
+    return WasmModule();
 #endif
 
-    JSVMModule module;
-    module.contents = new JSVMModuleContents(target, source, source_len, fn_name, jit_externs, extern_deps);
+    WasmModule module;
+    module.contents = new WasmModuleContents(target, source, source_len, fn_name, jit_externs, extern_deps);
     return module;
 }
 
 /** Run generated previously compiled wasm code with a set of arguments. */
-int JSVMModule::run(const std::vector<std::pair<Argument, const void *>> &args) {
+int WasmModule::run(const std::vector<std::pair<Argument, const void *>> &args) {
     internal_assert(contents.defined());
     return contents->run(args);
 }

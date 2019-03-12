@@ -1,5 +1,5 @@
-#ifndef HALIDE_JSVM_EXECUTOR_H
-#define HALIDE_JSVM_EXECUTOR_H
+#ifndef HALIDE_WASM_EXECUTOR_H
+#define HALIDE_WASM_EXECUTOR_H
 
 /** \file
  *
@@ -21,17 +21,17 @@
 namespace Halide {
 namespace Internal {
 
-struct JSVMModuleContents;
+struct WasmModuleContents;
 
 /** Handle to compiled JavaScript code which can be called later. */
-struct JSVMModule {
-    Internal::IntrusivePtr<JSVMModuleContents> contents;
+struct WasmModule {
+    Internal::IntrusivePtr<WasmModuleContents> contents;
 
-    /** If the given target can be executed via the JSVM executor, return true. */
+    /** If the given target can be executed via the wasm executor, return true. */
     static bool can_jit_target(const Target &target);
 
     /** Compile generated JavaScript or wasm code with a set of externs. */
-    static JSVMModule compile(const Target &target, const void *source, size_t source_len,
+    static WasmModule compile(const Target &target, const void *source, size_t source_len,
                               const std::string &fn_name, const std::map<std::string, JITExtern> &externs,
                               const std::vector<JITModule> &extern_deps);
 
@@ -42,4 +42,4 @@ struct JSVMModule {
 }  // namespace Internal
 }  // namespace Halide
 
-#endif  // HALIDE_JSVM_EXECUTOR_H
+#endif  // HALIDE_WASM_EXECUTOR_H
