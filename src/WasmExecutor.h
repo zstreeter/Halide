@@ -31,9 +31,14 @@ struct WasmModule {
     static bool can_jit_target(const Target &target);
 
     /** Compile generated JavaScript or wasm code with a set of externs. */
-    static WasmModule compile(const Target &target, const void *source, size_t source_len,
-                              const std::string &fn_name, const std::map<std::string, JITExtern> &externs,
-                              const std::vector<JITModule> &extern_deps);
+    static WasmModule compile(
+        const Target &target,
+        const std::vector<Argument> &arguments,
+        const void *source, size_t source_len,
+        const std::string &fn_name,
+        const std::map<std::string, JITExtern> &externs,
+        const std::vector<JITModule> &extern_deps
+    );
 
     /** Run generated previously compiled JavaScript or wasm code with a set of arguments. */
     int run(const std::vector<std::pair<Argument, const void *>> &args);

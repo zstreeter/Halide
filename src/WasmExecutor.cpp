@@ -1262,6 +1262,7 @@ struct WasmModuleContents {
     mutable RefCount ref_count;
 
     const Target target;
+    const std::vector<Argument> arguments;
     JITExternMap jit_externs;
     std::vector<JITModule> extern_deps;
     JITModule trampolines;
@@ -1275,6 +1276,7 @@ struct WasmModuleContents {
 
     WasmModuleContents(
         const Target &target,
+        const std::vector<Argument> &arguments,
         const void *source,
         size_t source_len,
         const std::string &fn_name,
@@ -1289,12 +1291,14 @@ struct WasmModuleContents {
 
 WasmModuleContents::WasmModuleContents(
     const Target &target,
+    const std::vector<Argument> &arguments,
     const void *source,
     size_t source_len,
     const std::string &fn_name,
     const JITExternMap &jit_externs,
     const std::vector<JITModule> &extern_deps
 ) : target(target),
+    arguments(arguments),
     jit_externs(jit_externs),
     extern_deps(extern_deps),
     trampolines(JITModule::make_trampolines_module(get_host_target(), jit_externs, kTrampolineSuffix, extern_deps)) {
@@ -1505,9 +1509,12 @@ int WasmModuleContents::run(const std::vector<std::pair<Argument, const void *>>
 
     std::vector<wasm32_ptr_t> wbufs(args.size(), 0);
 
+    internal_assert(arguments.size() == args.size());
+
     std::vector<v8::Handle<Value>> js_args;
     for (size_t i = 0; i < args.size(); i++) {
         const Argument &arg = args[i].first;
+    internal_assert(arg == arguments[i]);
         if (arg.is_buffer()) {
             wdebug(0)<<"arg "<<i<<" "<<arg.name<<" is buffer\n";
             halide_buffer_t *buf = (halide_buffer_t *) const_cast<void*>(args[i].second);
@@ -1605,6 +1612,7 @@ bool WasmModule::can_jit_target(const Target &target) {
 /*static*/
 WasmModule WasmModule::compile(
   const Target &target,
+  const std::vector<Argument> &arguments,
   const void *source,
   size_t source_len,
   const std::string &fn_name,
@@ -1617,7 +1625,7 @@ WasmModule WasmModule::compile(
 #endif
 
     WasmModule module;
-    module.contents = new WasmModuleContents(target, source, source_len, fn_name, jit_externs, extern_deps);
+    module.contents = new WasmModuleContents(target, arguments, source, source_len, fn_name, jit_externs, extern_deps);
     return module;
 }
 

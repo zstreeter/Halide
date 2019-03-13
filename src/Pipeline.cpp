@@ -535,8 +535,16 @@ void Pipeline::compile_jit(const Target &target_arg) {
             }
         }
 
+        vector<Argument> args_and_outputs = args;
+        for (auto &out : contents->outputs) {
+            for (Type t : out.output_types()) {
+                args_and_outputs.emplace_back(out.name(), Argument::OutputBuffer, t, out.dimensions(), ArgumentEstimates{});
+            }
+        }
+
         contents->wasm_module = WasmModule::compile(
             target,
+            args_and_outputs,
             wasm_code.data(), wasm_code.size_in_bytes(),
             contents->module.name(),
             lowered_externs,
