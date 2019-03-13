@@ -267,6 +267,7 @@ const std::map<std::string, Target::OS> os_name_map = {
     {"ios", Target::IOS},
     {"qurt", Target::QuRT},
     {"noos", Target::NoOS},
+    {"fuchsia", Target::Fuchsia},
     {"wasmrt", Target::WebAssemblySingleThreadedRuntime}
 };
 
