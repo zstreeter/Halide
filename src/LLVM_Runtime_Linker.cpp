@@ -1,6 +1,5 @@
 #include "LLVM_Runtime_Linker.h"
 #include "LLVM_Headers.h"
-// #include "LLVM_Output.h"
 
 namespace Halide {
 
@@ -441,10 +440,6 @@ llvm::Triple get_triple_for_target(const Target &target) {
     return triple;
 }
 
-}  // namespace Internal
-
-namespace {
-
 void convert_weak_to_strong(llvm::GlobalValue &gv) {
     llvm::GlobalValue::LinkageTypes linkage = gv.getLinkage();
     if (linkage == llvm::GlobalValue::WeakAnyLinkage) {
@@ -455,6 +450,10 @@ void convert_weak_to_strong(llvm::GlobalValue &gv) {
         gv.setLinkage(llvm::GlobalValue::ExternalLinkage);
     }
 }
+
+}  // namespace Internal
+
+namespace {
 
 // Link all modules together and with the result in modules[0], all
 // other input modules are destroyed. Sets the datalayout and target
@@ -504,7 +503,7 @@ void link_modules(std::vector<std::unique_ptr<llvm::Module>> &modules, Target t,
     // Enumerate the global variables.
     for (auto &gv : modules[0]->globals()) {
         // No variables are part of the public interface (even the ones labelled halide_)
-        convert_weak_to_strong(gv);
+        Internal::convert_weak_to_strong(gv);
     }
 
     // Enumerate the functions.
@@ -522,7 +521,7 @@ void link_modules(std::vector<std::unique_ptr<llvm::Module>> &modules, Target t,
         can_strip = can_strip && !is_halide_extern_c_sym;
 
         if (can_strip || make_weak_symbols_strong) {
-            convert_weak_to_strong(f);
+            Internal::convert_weak_to_strong(f);
         }
     }
 
