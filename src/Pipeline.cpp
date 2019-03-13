@@ -373,14 +373,14 @@ class FindExterns : public IRGraphVisitor {
                 }
                 ExternCFunction f(address, ExternSignature(op->type.element_of(), op->type.bits() == 0, arg_types));
                 JITExtern jit_extern(f);
+debug(0) << "FindExterns adds: " << op->name << "\n";
                 externs.emplace(op->name, jit_extern);
             }
         }
     }
 
 public:
-    FindExterns(std::map<std::string, JITExtern> &externs) : externs(externs) {
-    }
+    FindExterns(std::map<std::string, JITExtern> &externs) : externs(externs) {}
 
     std::map<std::string, JITExtern> &externs;
 };
@@ -481,22 +481,19 @@ void Pipeline::compile_jit(const Target &target_arg) {
 
     debug(2) << "jit-compiling for: " << target_arg << "\n";
 
-    // TODO: see if JS and non-JS can share more code.
-    if (target.arch == Target::WebAssembly) {
-    #if defined(WITH_V8) || defined(WITH_SPIDERMONKEY)
-        if (contents->wasm_module.contents.defined()) {
-            return;
-        }
-    #else
-        user_error << "Cannot JIT wasm without a Wasm execution engine (e.g. V8) configured at compile time.\n";
-    #endif
-    } else {
-        // If we're re-jitting for the same target, we can just keep the
-        // old jit module.
-        if (contents->jit_target == target &&
-            contents->jit_module.compiled()) {
-            debug(2) << "Reusing old jit module compiled for :\n" << contents->jit_target << "\n";
-            return;
+    // If we're re-jitting for the same target, we can just keep the
+    // old jit module.
+    if (contents->jit_target == target) {
+        if (target.arch == Target::WebAssembly) {
+            if (contents->wasm_module.contents.defined()) {
+                debug(2) << "Reusing old wasm module compiled for :\n" << contents->jit_target << "\n";
+                return;
+            }
+        } else {
+            if (contents->jit_module.compiled()) {
+                debug(2) << "Reusing old jit module compiled for :\n" << contents->jit_target << "\n";
+                return;
+            }
         }
     }
 
@@ -522,43 +519,50 @@ void Pipeline::compile_jit(const Target &target_arg) {
 
     // Compile to a module and also compile any submodules.
     Module module = compile_to_module(args, name, target).resolve_submodules();
+
+    std::map<std::string, JITExtern> lowered_externs = contents->jit_externs;
+
     if (target.arch == Target::WebAssembly) {
         Buffer<uint8_t> wasm_code = module.compile_to_buffer(/*make_weak_symbols_strong*/ true);
-
-        std::map<std::string, JITExtern> lowered_externs = contents->jit_externs;
 
         FindExterns find_externs(lowered_externs);
         for (const LoweredFunc &f : contents->module.functions()) {
             f.body.accept(&find_externs);
         }
-        for (const auto &p : lowered_externs) {
-          debug(0) << "Found extern: " << p.first << "\n";
-        }
-
-        contents->wasm_module = WasmModule::compile(target, wasm_code.data(), wasm_code.size_in_bytes(),
-            contents->module.name(), lowered_externs, make_externs_jit_module(target, lowered_externs));
-    } else {
-        auto f = module.get_function_by_name(name);
-
-        std::map<std::string, JITExtern> lowered_externs = contents->jit_externs;
-
-        // Compile to jit module
-        JITModule jit_module(module, f, make_externs_jit_module(target_arg, lowered_externs));
-
-        // Dump bitcode to a file if the environment variable
-        // HL_GENBITCODE is defined to a nonzero value.
-        if (atoi(get_env_variable("HL_GENBITCODE").c_str())) {
-            string program_name = running_program_name();
-            if (program_name.empty()) {
-                program_name = "unknown" + unique_name('_').substr(1);
+        if (debug::debug_level() >= 1) {
+            for (const auto &p : lowered_externs) {
+              debug(1) << "Found extern: " << p.first << "\n";
             }
-            string file_name = program_name + "_" + name + "_" + unique_name('g').substr(1) + ".bc";
-            debug(4) << "Saving bitcode to: " << file_name << "\n";
-            module.compile(Outputs().bitcode(file_name));
         }
 
-        contents->jit_module = jit_module;
+        contents->wasm_module = WasmModule::compile(
+            target,
+            wasm_code.data(), wasm_code.size_in_bytes(),
+            contents->module.name(),
+            lowered_externs,
+            make_externs_jit_module(target, lowered_externs)
+        );
+        return;
     }
+
+    auto f = module.get_function_by_name(name);
+
+    // Compile to jit module
+    JITModule jit_module(module, f, make_externs_jit_module(target_arg, lowered_externs));
+
+    // Dump bitcode to a file if the environment variable
+    // HL_GENBITCODE is defined to a nonzero value.
+    if (atoi(get_env_variable("HL_GENBITCODE").c_str())) {
+        string program_name = running_program_name();
+        if (program_name.empty()) {
+            program_name = "unknown" + unique_name('_').substr(1);
+        }
+        string file_name = program_name + "_" + name + "_" + unique_name('g').substr(1) + ".bc";
+        debug(4) << "Saving bitcode to: " << file_name << "\n";
+        module.compile(Outputs().bitcode(file_name));
+    }
+
+    contents->jit_module = jit_module;
 }
 
 
