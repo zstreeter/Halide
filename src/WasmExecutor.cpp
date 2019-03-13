@@ -1514,7 +1514,12 @@ int WasmModuleContents::run(const std::vector<std::pair<Argument, const void *>>
     std::vector<v8::Handle<Value>> js_args;
     for (size_t i = 0; i < args.size(); i++) {
         const Argument &arg = args[i].first;
-    internal_assert(arg == arguments[i]);
+Argument a2 = arguments[i];
+a2.argument_estimates = ArgumentEstimates{};
+//    internal_assert(arg.name == a2.name)<<arg.name<<" vs "<<a2.name;
+    internal_assert(arg.kind == a2.kind);
+    internal_assert(arg.dimensions == a2.dimensions);
+    internal_assert(arg.type == a2.type);
         if (arg.is_buffer()) {
             wdebug(0)<<"arg "<<i<<" "<<arg.name<<" is buffer\n";
             halide_buffer_t *buf = (halide_buffer_t *) const_cast<void*>(args[i].second);
