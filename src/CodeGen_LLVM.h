@@ -80,25 +80,17 @@ public:
      * TODO: This probably shouldn't exist. */
     std::unique_ptr<llvm::Module> finalize_module();
 
-    enum ARGVWrapperReturnResultKind {
-        IntFunctionResult,
-        LastArgPointsToResult,
-    };
-
     /** Make a wrapper to call the function with an array of pointer
      * args. This is easier for the JIT to call than a function with an
-     * unknown (at compile time) argument list.  Result is either a 32-bit
-     * int returned from the function or stored to the last void * in the
-     * args array. The choice of how to return the result is controlled by
-     * the result_kind argument.
+     * unknown (at compile time) argument list.  Result is stored to the last void * in the
+     * args array.
      * TODO: This probably shouldn't exist. */
     // @{
-    llvm::Function *add_argv_wrapper(llvm::Function *fn, const std::string &name,
-                                     ARGVWrapperReturnResultKind result_kind);
+    llvm::Function *add_trampoline_wrapper(llvm::Function *fn, const std::string &name);
     /** As above, but create the callee as an extern linkage function based on the passed name. */
-    llvm::Function *add_argv_wrapper(llvm::FunctionType *fn_type,
-                                     const std::string &wrapper_name, const std::string &callee_name,
-                                     ARGVWrapperReturnResultKind result_kind);
+    llvm::Function *add_trampoline_wrapper(llvm::FunctionType *fn_type,
+                                           const std::string &wrapper_name,
+                                           const std::string &callee_name);
     // @}
 protected:
     CodeGen_LLVM(Target t);

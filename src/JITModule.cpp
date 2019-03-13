@@ -388,9 +388,7 @@ JITModule JITModule::make_trampolines_module(const Target &target_arg,
     for (const std::pair<std::string, JITExtern> &extern_entry : externs) {
         const std::string &name = extern_entry.first;
         Symbol sym = result.add_extern_for_export(name, extern_entry.second.extern_c_function());
-        codegen->add_argv_wrapper(cast<llvm::FunctionType>(sym.llvm_type),
-                                  name + suffix, name,
-                                  CodeGen_LLVM::LastArgPointsToResult);
+        codegen->add_trampoline_wrapper(cast<llvm::FunctionType>(sym.llvm_type), name + suffix, name);
         requested_exports.push_back(name + suffix);
     }
     result.compile_module(codegen->finalize_module(), "", target, deps,

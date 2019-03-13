@@ -516,15 +516,13 @@ MangledNames get_mangled_names(const LoweredFunc &f, const Target &target) {
 // Make a wrapper to call the function with an array of pointer
 // args. This is easier for the JIT to call than a function with an
 // unknown (at compile time) argument list.
-llvm::Function *CodeGen_LLVM::add_argv_wrapper(llvm::Function *fn,
-                                               const std::string &name,
-                                               ARGVWrapperReturnResultKind result_kind) {
+llvm::Function *CodeGen_LLVM::add_trampoline_wrapper(llvm::Function *fn,
+                                               const std::string &name) {
     llvm::Type *buffer_t_type = module->getTypeByName("struct.halide_buffer_t");
     llvm::Type *i8 = llvm::Type::getInt8Ty(module->getContext());
-    llvm::Type *i32 = llvm::Type::getInt32Ty(module->getContext());
     llvm::Type *void_type = llvm::Type::getVoidTy(module->getContext());
 
-    llvm::Type *result_type = (result_kind == IntFunctionResult) ? i32 : void_t;
+    llvm::Type *result_type = void_t;
     llvm::Type *args_t[] = {i8->getPointerTo()->getPointerTo()};
     llvm::FunctionType *func_t = llvm::FunctionType::get(result_type, args_t, false);
     llvm::Function *wrapper = llvm::Function::Create(func_t, llvm::GlobalValue::ExternalLinkage, name, module.get());
@@ -550,29 +548,24 @@ llvm::Function *CodeGen_LLVM::add_argv_wrapper(llvm::Function *fn,
     debug(4) << "Creating call from wrapper to actual function\n";
     llvm::Value *result = builder.CreateCall(fn, wrapper_args);
 
-    if (result_kind == IntFunctionResult) {
-        builder.CreateRet(result);
-    } else {
-        if (fn->getReturnType() != void_type) {
-            llvm::Value *ptr = builder.CreateConstGEP1_32(arg_array, wrapper_args.size());
-            ptr = builder.CreateLoad(ptr);
-            // Cast to the appropriate type and store
-            ptr = builder.CreatePointerCast(ptr, fn->getReturnType()->getPointerTo());
-            builder.CreateStore(result, ptr);
-        }
-        builder.CreateRetVoid();
+    if (fn->getReturnType() != void_type) {
+        llvm::Value *ptr = builder.CreateConstGEP1_32(arg_array, wrapper_args.size());
+        ptr = builder.CreateLoad(ptr);
+        // Cast to the appropriate type and store
+        ptr = builder.CreatePointerCast(ptr, fn->getReturnType()->getPointerTo());
+        builder.CreateStore(result, ptr);
     }
+    builder.CreateRetVoid();
 
     llvm::verifyFunction(*wrapper);
     return wrapper;
 }
 
-llvm::Function *CodeGen_LLVM::add_argv_wrapper(llvm::FunctionType *fn_type,
+llvm::Function *CodeGen_LLVM::add_trampoline_wrapper(llvm::FunctionType *fn_type,
                                                const std::string &wrapper_name,
-                                               const std::string &callee_name,
-                                               ARGVWrapperReturnResultKind result_kind) {
+                                               const std::string &callee_name) {
     llvm::Function *callee = llvm::Function::Create(fn_type, llvm::Function::ExternalLinkage, callee_name, module.get());
-    return add_argv_wrapper(callee, wrapper_name, result_kind);
+    return add_trampoline_wrapper(callee, wrapper_name);
 }
 
 void CodeGen_LLVM::init_for_codegen(const std::string &name, bool any_strict_float) {
