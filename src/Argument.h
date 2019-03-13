@@ -85,13 +85,6 @@ struct Argument {
         dimensions(im.dimensions()),
         type(im.type()) {}
 
-    template<typename T>
-    Argument(Buffer<T> im, Kind k) :
-        name(im.name()),
-        kind(k),
-        dimensions(im.dimensions()),
-        type(im.type()) { internal_assert(is_buffer()); }
-
     bool is_buffer() const { return kind == InputBuffer || kind == OutputBuffer; }
     bool is_scalar() const { return kind == InputScalar; }
 

@@ -2,7 +2,6 @@
 #include <fstream>
 
 #include "Argument.h"
-#include "CodeGen_WebAssembly.h"
 #include "FindCalls.h"
 #include "Func.h"
 #include "IRVisitor.h"
@@ -817,15 +816,12 @@ struct JITFuncCallContext {
 struct Pipeline::JITCallArgs {
     size_t size{0};
     const void **store;
-    Argument *store_args;
 
     JITCallArgs(size_t size) : size(size) {
         if (size > kStoreSize) {
             store = new ConstVoidPtr[size];
-            store_args = new Argument[size];
         } else {
             store = fixed_store;
-            store_args = fixed_store_args;
         }
     }
 
@@ -833,16 +829,12 @@ struct Pipeline::JITCallArgs {
         if (store != fixed_store) {
             delete [] store;
         }
-        if (store_args != fixed_store_args) {
-            delete [] store_args;
-        }
     }
 
 private:
     static constexpr int kStoreSize = 64;
     using ConstVoidPtr = const void *;
     ConstVoidPtr fixed_store[kStoreSize];
-    Argument fixed_store_args[kStoreSize];
 
     JITCallArgs(const JITCallArgs &) = delete;
     JITCallArgs(JITCallArgs &&) = delete;
@@ -868,7 +860,7 @@ void Pipeline::prepare_jit_call_arguments(RealizationArg &outputs, const Target 
     for (const InferredArgument &arg : contents->inferred_args) {
         if (arg.param.defined()) {
             if (arg.param.same_as(contents->user_context_arg.param)) {
-                args_result.store[arg_index] = user_context;
+                args_result.store[arg_index++] = user_context;
             } else {
                 Buffer<> *buf_out_param = nullptr;
                 const Parameter &p = no_param_map ? arg.param : param_map.map(arg.param, buf_out_param);
@@ -879,24 +871,22 @@ void Pipeline::prepare_jit_call_arguments(RealizationArg &outputs, const Target 
                     // ImageParam arg
                     Buffer<> buf = p.buffer();
                     if (buf.defined()) {
-                        args_result.store[arg_index] = p.raw_buffer();
+                        args_result.store[arg_index++] = p.raw_buffer();
                     } else {
                         // Unbound
-                        args_result.store[arg_index] = nullptr;
+                        args_result.store[arg_index++] = nullptr;
                     }
                     debug(2) << "JIT input ImageParam argument ";
                 } else {
-                    args_result.store[arg_index] = p.scalar_address();
+                    args_result.store[arg_index++] = p.scalar_address();
                     debug(2) << "JIT input scalar argument ";
                 }
             }
         } else {
             debug(2) << "JIT input Image argument ";
             internal_assert(arg.buffer.defined());
-            args_result.store[arg_index] = arg.buffer.raw_buffer();
+            args_result.store[arg_index++] = arg.buffer.raw_buffer();
         }
-        args_result.store_args[arg_index] = arg.arg;
-        arg_index++;
         const void *ptr = args_result.store[arg_index - 1];
         debug(2) << arg.arg.name << " @ " << ptr << "\n";
     }
@@ -905,25 +895,20 @@ void Pipeline::prepare_jit_call_arguments(RealizationArg &outputs, const Target 
     if (outputs.r) {
         for (size_t i = 0; i < outputs.r->size(); i++) {
             const halide_buffer_t *buf = (*outputs.r)[i].raw_buffer();
-            args_result.store[arg_index] = buf;
-            args_result.store_args[arg_index] = Argument(Buffer<>(*buf), Argument::OutputBuffer);
-            arg_index++;
+            args_result.store[arg_index++] = buf;
             debug(2) << "JIT output buffer @ " << (const void *)buf << ", " << (const void *)buf->host << "\n";
         }
     } else if (outputs.buf) {
-        args_result.store[arg_index] = outputs.buf;
-        args_result.store_args[arg_index] = Argument(Buffer<>(*outputs.buf), Argument::OutputBuffer);
-        arg_index++;
+        args_result.store[arg_index++] = outputs.buf;
         debug(2) << "JIT output buffer @ " << (const void *)outputs.buf << ", " << (const void *)outputs.buf->host << "\n";
     } else {
         for (const Buffer<> &buffer : *outputs.buffer_list) {
             const halide_buffer_t *buf = buffer.raw_buffer();
-            args_result.store[arg_index] = buf;
-            args_result.store_args[arg_index] = Argument(Buffer<>(*buf), Argument::OutputBuffer);
-            arg_index++;
+            args_result.store[arg_index++] = buf;
             debug(2) << "JIT output buffer @ " << (const void *)buf << ", " << (const void *)buf->host << "\n";
         }
     }
+
 }
 
 std::vector<JITModule>
@@ -981,13 +966,8 @@ int Pipeline::call_jit_code(const Target &target, const JITCallArgs &args) {
     if (target.arch == Target::WebAssembly) {
         internal_assert(contents->wasm_module.contents.defined());
 
-        std::vector<std::pair<Argument, const void *>> wasm_args;
-        for (size_t i = 0; i < args.size; i++) {
-            wasm_args.push_back(std::make_pair(args.store_args[i], args.store[i]));
-        }
-
         Internal::debug(2) << "Calling jitted wasm function\n";
-        exit_status = contents->wasm_module.run(wasm_args);
+        exit_status = contents->wasm_module.run(args.store);
         Internal::debug(2) << "Back from jitted wasm function. Exit status was " << exit_status << "\n";
     } else
     #endif

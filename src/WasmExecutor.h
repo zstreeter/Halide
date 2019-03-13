@@ -41,7 +41,7 @@ struct WasmModule {
     );
 
     /** Run generated previously compiled JavaScript or wasm code with a set of arguments. */
-    int run(const std::vector<std::pair<Argument, const void *>> &args);
+    int run(const void **args);
 };
 
 }  // namespace Internal

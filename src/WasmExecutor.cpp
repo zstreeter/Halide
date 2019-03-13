@@ -1284,7 +1284,7 @@ struct WasmModuleContents {
         const std::vector<JITModule> &extern_deps
     );
 
-    int run(const std::vector<std::pair<Argument, const void *>> &args);
+    int run(const void **args);
 
     ~WasmModuleContents();
 };
@@ -1491,7 +1491,7 @@ WasmModuleContents::WasmModuleContents(
 #endif
 }
 
-int WasmModuleContents::run(const std::vector<std::pair<Argument, const void *>> &args) {
+int WasmModuleContents::run(const void **args) {
 #ifdef WITH_V8
     Locker locker(isolate);
     Isolate::Scope isolate_scope(isolate);
@@ -1507,34 +1507,25 @@ int WasmModuleContents::run(const std::vector<std::pair<Argument, const void *>>
     try_catch.SetCaptureMessage(true);
     try_catch.SetVerbose(true);
 
-    std::vector<wasm32_ptr_t> wbufs(args.size(), 0);
-
-    internal_assert(arguments.size() == args.size());
+    std::vector<wasm32_ptr_t> wbufs(arguments.size(), 0);
 
     std::vector<v8::Handle<Value>> js_args;
-    for (size_t i = 0; i < args.size(); i++) {
-        const Argument &arg = args[i].first;
-Argument a2 = arguments[i];
-a2.argument_estimates = ArgumentEstimates{};
-//    internal_assert(arg.name == a2.name)<<arg.name<<" vs "<<a2.name;
-    internal_assert(arg.kind == a2.kind);
-    internal_assert(arg.dimensions == a2.dimensions);
-    internal_assert(arg.type == a2.type);
+    for (size_t i = 0; i < arguments.size(); i++) {
+        const Argument &arg = arguments[i];
+        const void *arg_ptr = args[i];
         if (arg.is_buffer()) {
-            wdebug(0)<<"arg "<<i<<" "<<arg.name<<" is buffer\n";
-            halide_buffer_t *buf = (halide_buffer_t *) const_cast<void*>(args[i].second);
+            halide_buffer_t *buf = (halide_buffer_t *) const_cast<void*>(arg_ptr);
             internal_assert(buf);
             wasm32_ptr_t wbuf = hostbuf_to_wasmbuf(context, buf);
             wbufs[i] = wbuf;
             js_args.push_back(wrap_scalar(context, wbuf));
         } else {
-            wdebug(0)<<"arg "<<i<<" "<<arg.name<<" is scalar "<<arg.type.bits()<<"\n";
             if (arg.name == "__user_context") {
                 js_args.push_back(wrap_scalar(context, kMagicJitUserContextValue));
-                JITUserContext *jit_user_context = check_jit_user_context(*(JITUserContext **) const_cast<void *>(args[i].second));
+                JITUserContext *jit_user_context = check_jit_user_context(*(JITUserContext **) const_cast<void *>(arg_ptr));
                 context->SetAlignedPointerInEmbedderData(kJitUserContext, jit_user_context);
             } else {
-                js_args.push_back(wrap_scalar(context, arg.type, args[i].second));
+                js_args.push_back(wrap_scalar(context, arg.type, arg_ptr));
             }
         }
     }
@@ -1552,10 +1543,11 @@ a2.argument_estimates = ArgumentEstimates{};
     int r = result.ToLocalChecked()->Int32Value(context).ToChecked();
     if (r == 0) {
         // Update any output buffers
-        for (size_t i = 0; i < args.size(); i++) {
-            const Argument &arg = args[i].first;
+        for (size_t i = 0; i < arguments.size(); i++) {
+            const Argument &arg = arguments[i];
+            const void *arg_ptr = args[i];
             if (arg.is_buffer()) {
-                halide_buffer_t *buf = (halide_buffer_t *) const_cast<void*>(args[i].second);
+                halide_buffer_t *buf = (halide_buffer_t *) const_cast<void*>(arg_ptr);
                 copy_wasmbuf_to_existing_hostbuf(context, wbufs[i], buf);
             }
         }
@@ -1635,7 +1627,7 @@ WasmModule WasmModule::compile(
 }
 
 /** Run generated previously compiled wasm code with a set of arguments. */
-int WasmModule::run(const std::vector<std::pair<Argument, const void *>> &args) {
+int WasmModule::run(const void **args) {
     internal_assert(contents.defined());
     return contents->run(args);
 }
