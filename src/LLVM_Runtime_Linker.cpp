@@ -526,7 +526,6 @@ void link_modules(std::vector<std::unique_ptr<llvm::Module>> &modules, Target t,
         internal_assert(!is_halide_extern_c_sym || f.isWeakForLinker() || f.isDeclaration())
             << " for function " << (std::string)f.getName() << "\n";
         can_strip = can_strip && !is_halide_extern_c_sym;
-
         if (can_strip || make_weak_symbols_strong) {
             Internal::convert_weak_to_strong(f);
         }
