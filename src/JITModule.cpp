@@ -29,7 +29,7 @@ using std::string;
 #ifdef _WIN32
 #include <windows.h>
 void *get_symbol_address(const char *s) {
-    return GetProcAddress(GetModuleHandle(nullptr), s);
+    return (void *) GetProcAddress(GetModuleHandle(nullptr), s);
 }
 #else
 #include <dlfcn.h>
