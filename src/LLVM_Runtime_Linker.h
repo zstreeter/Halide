@@ -34,6 +34,9 @@ void add_bitcode_to_module(llvm::LLVMContext *context, llvm::Module &module,
 /** If the GlobalValue has weak linkage, convert to the equivalent non-weak linkage. */
 void convert_weak_to_strong(llvm::GlobalValue &gv);
 
+/** Return the special runtime Module needed to use the Wasm JIT */
+std::unique_ptr<llvm::Module> get_wasm_jit_module(const Target &t, llvm::LLVMContext *c);
+
 }  // namespace Internal
 }  // namespace Halide
 

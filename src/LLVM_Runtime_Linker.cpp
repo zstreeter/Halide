@@ -311,6 +311,12 @@ llvm::DataLayout get_data_layout_for_target(Target target) {
         return llvm::DataLayout(
             "e-m:e-p:32:32:32-a:0-n16:32-i64:64:64-i32:32:32-i16:16:16-i1:8:8"
             "-f32:32:32-f64:64:64-v32:32:32-v64:64:64-v512:512:512-v1024:1024:1024-v2048:2048:2048");
+    } else if (target.arch == Target::WebAssembly) {
+        if (target.bits == 32) {
+            return llvm::DataLayout("e-m:e-p:32:32-i64:64-n32:64-S128");
+        } else {
+            return llvm::DataLayout("e-m:e-p:64:64-i64:64-n32:64-S128");
+        }
     } else {
         internal_error << "Bad target arch: " << target.arch << "\n";
         return llvm::DataLayout("unreachable");
@@ -426,6 +432,14 @@ llvm::Triple get_triple_for_target(const Target &target) {
         triple.setVendor(llvm::Triple::UnknownVendor);
         triple.setArch(llvm::Triple::hexagon);
         triple.setObjectFormat(llvm::Triple::ELF);
+    } else if (target.arch == Target::WebAssembly) {
+        triple.setVendor(llvm::Triple::UnknownVendor);
+        if (target.bits == 32) {
+            triple.setArch(llvm::Triple::wasm32);
+        } else {
+            triple.setArch(llvm::Triple::wasm64);
+        }
+        triple.setObjectFormat(llvm::Triple::Wasm);
     } else {
         internal_error << "Bad target arch: " << target.arch << "\n";
     }
@@ -451,7 +465,7 @@ namespace {
 // Link all modules together and with the result in modules[0], all
 // other input modules are destroyed. Sets the datalayout and target
 // triple appropriately for the target.
-void link_modules(std::vector<std::unique_ptr<llvm::Module>> &modules, Target t) {
+void link_modules(std::vector<std::unique_ptr<llvm::Module>> &modules, Target t, bool make_weak_symbols_strong = false) {
 
     llvm::DataLayout data_layout = get_data_layout_for_target(t);
     llvm::Triple triple = Internal::get_triple_for_target(t);
@@ -512,7 +526,7 @@ void link_modules(std::vector<std::unique_ptr<llvm::Module>> &modules, Target t)
         internal_assert(!is_halide_extern_c_sym || f.isWeakForLinker() || f.isDeclaration())
             << " for function " << (std::string)f.getName() << "\n";
         can_strip = can_strip && !is_halide_extern_c_sym;
-        if (can_strip) {
+        if (can_strip || make_weak_symbols_strong) {
             Internal::convert_weak_to_strong(f);
         }
     }
@@ -620,6 +634,34 @@ void add_underscores_to_posix_calls_on_windows(llvm::Module *m) {
     }
 }
 
+std::unique_ptr<llvm::Module> get_wasm_jit_module(const Target &t, llvm::LLVMContext *c) {
+    bool bits_64 = (t.bits == 64);
+    bool debug = t.has_feature(Target::Debug);
+
+    vector<std::unique_ptr<llvm::Module>> modules;
+    modules.push_back(get_initmod_fake_thread_pool(c, bits_64, debug));
+    modules.push_back(get_initmod_posix_allocator(c, bits_64, debug));
+    modules.push_back(get_initmod_buffer_t(c, bits_64, debug));
+    modules.push_back(get_initmod_destructors(c, bits_64, debug));
+    modules.push_back(get_initmod_posix_math_ll(c));
+    modules.push_back(get_initmod_tracing(c, bits_64, debug));
+    modules.push_back(get_initmod_write_debug_image(c, bits_64, debug));
+    modules.push_back(get_initmod_cache(c, bits_64, debug));
+    modules.push_back(get_initmod_to_string(c, bits_64, debug));
+    modules.push_back(get_initmod_alignment_32(c, bits_64, debug));
+    modules.push_back(get_initmod_device_interface(c, bits_64, debug));
+    modules.push_back(get_initmod_metadata(c, bits_64, debug));
+    modules.push_back(get_initmod_float16_t(c, bits_64, debug));
+    modules.push_back(get_initmod_errors(c, bits_64, debug));
+    modules.push_back(get_initmod_posix_abort(c, bits_64, debug));
+    modules.push_back(get_initmod_msan_stubs(c, bits_64, debug));
+
+    // We don't want anything marked as weak for the wasm-jit runtime
+    link_modules(modules, t, /*make_weak_symbols_strong*/ true);
+
+    return std::move(modules[0]);
+}
+
 /** Create an llvm module containing the support code for a given target. */
 std::unique_ptr<llvm::Module> get_initial_module_for_target(Target t, llvm::LLVMContext *c, bool for_shared_jit_runtime, bool just_gpu) {
     enum InitialModuleType {
@@ -675,6 +717,16 @@ std::unique_ptr<llvm::Module> get_initial_module_for_target(Target t, llvm::LLVM
                     modules.push_back(get_initmod_posix_threads(c, bits_64, debug));
                 }
                 modules.push_back(get_initmod_posix_get_symbol(c, bits_64, debug));
+            } else if (t.os == Target::WebAssemblySingleThreadedRuntime) {
+                modules.push_back(get_initmod_fake_get_symbol(c, bits_64, debug));
+                modules.push_back(get_initmod_fake_thread_pool(c, bits_64, debug));
+                modules.push_back(get_initmod_linux_host_cpu_count(c, bits_64, debug));
+                modules.push_back(get_initmod_linux_yield(c, bits_64, debug));
+                modules.push_back(get_initmod_posix_allocator(c, bits_64, debug));
+                modules.push_back(get_initmod_posix_clock(c, bits_64, debug));
+                modules.push_back(get_initmod_posix_error_handler(c, bits_64, debug));
+                modules.push_back(get_initmod_posix_io(c, bits_64, debug));
+                modules.push_back(get_initmod_posix_print(c, bits_64, debug));
             } else if (t.os == Target::OSX) {
                 modules.push_back(get_initmod_posix_allocator(c, bits_64, debug));
                 modules.push_back(get_initmod_posix_error_handler(c, bits_64, debug));
@@ -901,6 +953,7 @@ std::unique_ptr<llvm::Module> get_initial_module_for_target(Target t, llvm::LLVM
                 modules.push_back(get_initmod_x86_avx2_ll(c));
             }
             if (t.has_feature(Target::Profile)) {
+                user_assert(t.os != Target::WebAssemblySingleThreadedRuntime) << "The profiler cannot be used in a threadless environment.";
                 modules.push_back(get_initmod_profiler_inlined(c, bits_64, debug));
             }
         }

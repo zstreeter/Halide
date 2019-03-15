@@ -8,6 +8,7 @@
 #endif
 
 #include "CodeGen_Internal.h"
+#include "CodeGen_LLVM.h"
 #include "JITModule.h"
 #include "LLVM_Headers.h"
 #include "LLVM_Runtime_Linker.h"
@@ -17,27 +18,36 @@
 #include "Pipeline.h"
 
 
-#if defined(_MSC_VER) && !defined(NOMINMAX)
-#define NOMINMAX
-#endif
-#ifdef _WIN32
-#include <windows.h>
-static bool have_symbol(const char *s) {
-    return GetProcAddress(GetModuleHandle(nullptr), s) != nullptr;
-}
-#else
-#include <dlfcn.h>
-static bool have_symbol(const char *s) {
-    return dlsym(nullptr, s) != nullptr;
-}
-#endif
-
 namespace Halide {
 namespace Internal {
 
 using std::string;
 
+#ifdef _MSC_VER
+#define NOMINMAX
+#endif
+#ifdef _WIN32
+#include <windows.h>
+void *get_symbol_address(const char *s) {
+    return GetProcAddress(GetModuleHandle(nullptr), s);
+}
+#else
+#include <dlfcn.h>
+void *get_symbol_address(const char *s) {
+    // Mac OS 10.11 fails to return a symbol address if nullptr or RTLD_DEFAULT
+    // is passed to dlsym. This seems to work.
+    void *handle = dlopen(nullptr, RTLD_LAZY);
+    void *result = dlsym(handle, s);
+    dlclose(handle);
+    return result;
+}
+#endif
+
 namespace {
+
+bool have_symbol(const char *s) {
+    return get_symbol_address(s) != nullptr;
+}
 
 typedef struct CUctx_st *CUcontext;
 
@@ -363,6 +373,28 @@ void JITModule::compile_module(std::unique_ptr<llvm::Module> m, const string &fu
     jit_module->entrypoint = entrypoint;
     jit_module->argv_entrypoint = argv_entrypoint;
     jit_module->name = function_name;
+}
+
+JITModule JITModule::make_trampolines_module(const Target &target_arg,
+                                             const std::map<std::string, JITExtern> &externs,
+                                             const std::string &suffix,
+                                             const std::vector<JITModule> &deps) {
+    Target target = target_arg;
+    target.set_feature(Target::JIT);
+
+    JITModule result;
+    CodeGen_LLVM *codegen = CodeGen_LLVM::new_for_target(target, result.jit_module->context);
+    codegen->init_for_codegen("trampolines");
+    std::vector<std::string> requested_exports;
+    for (const std::pair<std::string, JITExtern> &extern_entry : externs) {
+        const std::string &name = extern_entry.first;
+        Symbol sym = result.add_extern_for_export(name, extern_entry.second.extern_c_function());
+        codegen->add_trampoline_wrapper(cast<llvm::FunctionType>(sym.llvm_type), name + suffix, name);
+        requested_exports.push_back(name + suffix);
+    }
+    result.compile_module(codegen->finalize_module(), "", target, deps,
+                          requested_exports);
+    return result;
 }
 
 const std::map<std::string, JITModule::Symbol> &JITModule::exports() const {

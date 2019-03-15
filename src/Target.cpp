@@ -9,7 +9,7 @@
 #include "Error.h"
 #include "LLVM_Headers.h"
 #include "Util.h"
-#include "DeviceInterface.h"
+#include "WasmExecutor.h"
 
 #if defined(__powerpc__) && defined(__linux__)
 // This uses elf.h and must be included after "LLVM_Headers.h", which
@@ -268,6 +268,7 @@ const std::map<std::string, Target::OS> os_name_map = {
     {"qurt", Target::QuRT},
     {"noos", Target::NoOS},
     {"fuchsia", Target::Fuchsia},
+    {"wasmrt", Target::WebAssemblySingleThreadedRuntime}
 };
 
 bool lookup_os(const std::string &tok, Target::OS &result) {
@@ -286,6 +287,7 @@ const std::map<std::string, Target::Arch> arch_name_map = {
     {"mips", Target::MIPS},
     {"powerpc", Target::POWERPC},
     {"hexagon", Target::Hexagon},
+    {"wasm", Target::WebAssembly},
 };
 
 bool lookup_arch(const std::string &tok, Target::Arch &result) {
@@ -357,6 +359,7 @@ const std::map<std::string, Target::Feature> feature_name_map = {
     {"embed_bitcode", Target::EmbedBitcode},
     {"disable_llvm_loop_vectorize", Target::DisableLLVMLoopVectorize},
     {"disable_llvm_loop_unroll", Target::DisableLLVMLoopUnroll},
+    {"wasm_simd_128", Target::WasmSimd128},
     // NOTE: When adding features to this map, be sure to update
     // PyEnums.cpp and halide.cmake as well.
 };
@@ -401,7 +404,7 @@ Target get_jit_target_from_environment() {
     } else {
         Target t(target);
         t.set_feature(Target::JIT);
-        user_assert(t.os == host.os && t.arch == host.arch && t.bits == host.bits)
+        user_assert((t.os == host.os && t.arch == host.arch && t.bits == host.bits) || Internal::WasmModule::can_jit_target(t))
             << "HL_JIT_TARGET must match the host OS, architecture, and bit width.\n"
             << "HL_JIT_TARGET was " << target << ". "
             << "Host is " << host.to_string() << ".\n";
@@ -612,6 +615,9 @@ bool Target::supported() const {
 #endif
 #if !defined(WITH_HEXAGON)
     bad |= arch == Target::Hexagon;
+#endif
+#if !defined(WITH_WEBASSEMBLY)
+    bad |= arch == Target::WebAssembly;
 #endif
 #if !defined(WITH_PTX)
     bad |= has_feature(Target::CUDA);

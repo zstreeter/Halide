@@ -299,6 +299,7 @@ set(HEADER_FILES
   CodeGen_Posix.h
   CodeGen_PowerPC.h
   CodeGen_PTX_Dev.h
+  CodeGen_WebAssembly.h
   CodeGen_X86.h
   ConciseCasts.h
   CPlusPlusMangle.h
@@ -418,6 +419,7 @@ set(HEADER_FILES
   Var.h
   VaryingAttributes.h
   VectorizeLoops.h
+  WasmExecutor.h
   WrapCalls.h
   WrapExternStages.h
 )
@@ -473,6 +475,7 @@ add_library(Halide ${HALIDE_LIBRARY_TYPE}
   CodeGen_Posix.cpp
   CodeGen_PowerPC.cpp
   CodeGen_PTX_Dev.cpp
+  CodeGen_WebAssembly.cpp
   CodeGen_X86.cpp
   CPlusPlusMangle.cpp
   CSE.cpp
@@ -598,6 +601,7 @@ add_library(Halide ${HALIDE_LIBRARY_TYPE}
   Var.cpp
   VaryingAttributes.cpp
   VectorizeLoops.cpp
+  WasmExecutor.cpp
   WrapCalls.cpp
   WrapExternStages.cpp
   ${HEADER_FILES}
@@ -662,6 +666,11 @@ endif()
 if (TARGET_POWERPC)
   target_compile_definitions(Halide PRIVATE "-DWITH_POWERPC=1")
   list(APPEND LLVM_COMPONENTS PowerPC)
+endif()
+
+if (TARGET_WEBASSEMBLY)
+  target_compile_definitions(Halide PRIVATE "-DWITH_WEBASSEMBLY=1")
+  list(APPEND LLVM_COMPONENTS WebAssembly)
 endif()
 
 if (TARGET_PTX)
