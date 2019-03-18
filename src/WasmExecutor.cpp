@@ -875,12 +875,19 @@ void wasm_jit_halide_trace_helper_callback(const v8::FunctionCallbackInfo<v8::Va
     args.GetReturnValue().Set(wrap_scalar(context, result));
 }
 
+// TODO: vector codegen can underead allocated buffers; we need to deliberately
+// allocate extra and return a pointer partway in to avoid out-of-bounds access
+// failures. https://github.com/halide/Halide/issues/3738
+constexpr size_t kExtraMallocSlop = 32;
+
 void wasm_jit_malloc_callback(const v8::FunctionCallbackInfo<v8::Value>& args) {
     Isolate *isolate = args.GetIsolate();
     HandleScope scope(isolate);
     Local<Context> context = isolate->GetCurrentContext();
 
-    wasm32_ptr_t p = v8_WasmMemoryObject_malloc(context, args[0]->Int32Value(context).ToChecked());
+    size_t size = args[0]->Int32Value(context).ToChecked() + kExtraMallocSlop;
+    wasm32_ptr_t p = v8_WasmMemoryObject_malloc(context, size);
+    if (p) p += kExtraMallocSlop;
     args.GetReturnValue().Set(wrap_scalar(context, p));
 }
 
@@ -888,7 +895,9 @@ void wasm_jit_free_callback(const v8::FunctionCallbackInfo<v8::Value>& args) {
     Isolate *isolate = args.GetIsolate();
     HandleScope scope(isolate);
     Local<Context> context = isolate->GetCurrentContext();
-    v8_WasmMemoryObject_free(context, args[0]->Int32Value(context).ToChecked());
+    wasm32_ptr_t p = args[0]->Int32Value(context).ToChecked();
+    if (p) p -= kExtraMallocSlop;
+    v8_WasmMemoryObject_free(context, p);
 }
 
 void wasm_jit_abort_callback(const v8::FunctionCallbackInfo<v8::Value>& args) {
