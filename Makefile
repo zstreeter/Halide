@@ -186,20 +186,19 @@ HEXAGON_LLVM_CONFIG_LIB=$(if $(WITH_HEXAGON), hexagon, )
 # use when JIT-testing WASM and/or JavaScript Halide output. Note that
 # you must also define WITH_V8 and/or WITH_SPIDERMONKEY to have
 # the relevant JavaScript VM linked in with support, so it's fine to declare
-# V8_PATH and/or SPIDERMONKEY_PATH permanently in your environment, even if
+# V8_LIB_PATH, etc permanently in your environment, even if
 # you don't always want them linked into libHalide.
 
 V8_INCLUDE_PATH ?= /V8_INCLUDE_PATH/is/undefined/
-V8_LIB_PATH ?= /V8_LIB_PATH/is/undefined/
-V8_LIB_EXT ?= $(SHARED_EXT)
+V8_LIB_PATH ?= /V8_LIB_PATH/is/undefined/libv8_monolith.a
 V8_CXX_FLAGS=$(if $(WITH_V8), -DWITH_V8 -I$(V8_INCLUDE_PATH))
-V8_LDFLAGS=$(if $(WITH_V8), $(V8_LIB_PATH)/lib*$(V8_LIB_EXT))
+V8_LDFLAGS=$(if $(WITH_V8), $(V8_LIB_PATH))
 
 # TODO: We should support SpiderMonkey here too, in addition to V8
-SPIDERMONKEY_PATH ?= /SPIDERMONKEY_PATH/is/undefined/
-SPIDERMONKEY_CXX_FLAGS=$(if $(WITH_SPIDERMONKEY), -DWITH_SPIDERMONKEY -I$(SPIDERMONKEY_PATH)/include)
-SPIDERMONKEY_LIB_PATHS="/error/SpiderMonkey/embedding/is/not/yet/supported"
-SPIDERMONKEY_LDFLAGS=$(if $(WITH_SPIDERMONKEY), $(SPIDERMONKEY_LIB_PATHS))
+SPIDERMONKEY_INLCUDE_PATH ?= /SPIDERMONKEY_INLCUDE_PATH/is/undefined/
+SPIDERMONKEY_LIB_PATH="/error/SpiderMonkey/embedding/is/not/yet/supported/libssm.a"
+SPIDERMONKEY_CXX_FLAGS=$(if $(WITH_SPIDERMONKEY), -DWITH_SPIDERMONKEY -I$(SPIDERMONKEY_INLCUDE_PATH)/include)
+SPIDERMONKEY_LDFLAGS=$(if $(WITH_SPIDERMONKEY), $(SPIDERMONKEY_LIB_PATH))
 
 JSVM_CXX_FLAGS=$(V8_CXX_FLAGS) $(SPIDERMONKEY_CXX_FLAGS)
 JSVM_LDFLAGS=$(V8_LDFLAGS) $(SPIDERMONKEY_LDFLAGS)
@@ -1152,12 +1151,6 @@ GENERATOR_AOTWASM_TESTS := $(filter-out generator_aotwasm_variable_num_threads,$
 
 # Requires profiler support (which requires threading), not yet available for wasm tests
 GENERATOR_AOTWASM_TESTS := $(filter-out generator_aotwasm_memory_profiler_mandelbrot,$(GENERATOR_AOTWASM_TESTS))
-
-# TODO: CTLZ NOT SELECTABLE, LLVM BUG?
-# GENERATOR_AOTWASM_TESTS := $(filter-out generator_aotwasm_bit_operations,$(GENERATOR_AOTWASM_TESTS))
-
-# TODO: SETCC NOT SELECTABLE, LLVM BUG?
-# GENERATOR_AOTWASM_TESTS := $(filter-out generator_aotwasm_mandelbrot,$(GENERATOR_AOTWASM_TESTS))
 
 test_aotwasm_generator: $(GENERATOR_AOTWASM_TESTS)
 

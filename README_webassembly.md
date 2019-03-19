@@ -60,9 +60,9 @@ svn co https://llvm.org/svn/llvm-project/lld/trunk /path/to/llvm-trunk/tools/lld
 
 (You might have to do a clean build of LLVM for CMake to notice that you've added a tool.)
 
-- Install libv8 and the d8 shell tool (instructions omitted), or build from source if you prefer (instructions omitted).
+- Install libv8 and the d8 shell tool (instructions omitted), or build from source if you prefer (instructions omitted). Note that using shared-library builds of V8 may be problematic on some platforms (e.g. OSX) due to libc++ conflict issues; using a static-library version may be simpler for those.
 
-- Set V8_INCLUDE_PATH, V8_LIB_PATH to point to the paths for V8 shared libraries and include files. (If you build from source and are linking static libraries instead of dynamic libraries, also set V8_LIB_EXT to `.a` or similar.)
+- Set V8_INCLUDE_PATH and V8_LIB_PATH to point to the paths for V8 include files and library, respectively.
 
 - Set WITH_V8=1
 
