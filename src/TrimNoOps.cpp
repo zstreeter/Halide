@@ -12,6 +12,21 @@
 #include "TrimNoOps.h"
 #include "Var.h"
 
+#include <chrono>
+
+#define PROFILE(...)            \
+[&]()                           \
+{                               \
+    typedef std::chrono::high_resolution_clock clock_t; \
+    auto ini = clock_t::now();  \
+    __VA_ARGS__;                \
+    auto end = clock_t::now();  \
+    auto eps = std::chrono::duration<double>(end - ini).count();    \
+    return(eps);                \
+}()
+
+#define PROFILE_P(label, ...) printf(#label "> %fs\n", PROFILE(__VA_ARGS__))
+
 namespace Halide {
 namespace Internal {
 
@@ -337,20 +352,29 @@ class TrimNoOps : public IRMutator {
     using IRMutator::visit;
 
     Stmt visit(const For *op) override {
+
         // Bounds of GPU loops can't depend on outer gpu loop vars
         if (CodeGen_GPU_Dev::is_gpu_var(op->name)) {
             debug(3) << "TrimNoOps found gpu loop var: " << op->name << "\n";
             return IRMutator::visit(op);
         }
 
-        Stmt body = mutate(op->body);
+        Stmt body;
+        PROFILE_P("TrimNoOps::visit(For) -- body = mutate()",
+        body = mutate(op->body);
+        );
 
         debug(3) << "\n\n ***** Trim no ops in loop over " << op->name << "\n";
 
         IsNoOp is_no_op;
+        PROFILE_P("TrimNoOps::visit(For) -- body.accept()",
         body.accept(&is_no_op);
+        );
         debug(3) << "Condition is " << is_no_op.condition << "\n";
+
+        PROFILE_P("TrimNoOps::visit(For) -- simplify(simplify(common_subexpression_elimination()))",
         is_no_op.condition = simplify(simplify(common_subexpression_elimination(is_no_op.condition)));
+        );
 
         debug(3) << "Simplified condition is " << is_no_op.condition << "\n";
 
@@ -365,7 +389,10 @@ class TrimNoOps : public IRMutator {
         // The condition is something interesting. Try to see if we
         // can trim the loop bounds over which the loop does
         // something.
-        Interval i = solve_for_outer_interval(!is_no_op.condition, op->name);
+        Interval i;
+        PROFILE_P("TrimNoOps::visit(For) -- solve_for_outer_interval",
+        i = solve_for_outer_interval(!is_no_op.condition, op->name);
+        );
 
         debug(3) << "Interval is: " << i.min << ", " << i.max << "\n";
 
@@ -381,8 +408,12 @@ class TrimNoOps : public IRMutator {
 
         // Simplify the body to take advantage of the fact that the
         // loop range is now truncated
+        PROFILE_P("TrimNoOps::visit(For) -- SimplifyUsingBounds",
         body = simplify(SimplifyUsingBounds(op->name, i).mutate(body));
+        );
 
+        Stmt stmt;
+        PROFILE_P("TrimNoOps::visit(For) -- tail",
         string new_min_name = unique_name(op->name + ".new_min");
         string new_max_name = unique_name(op->name + ".new_max");
         string old_max_name = unique_name(op->name + ".old_max");
@@ -412,7 +443,7 @@ class TrimNoOps : public IRMutator {
 
         Expr new_extent = new_max_var - new_min_var;
 
-        Stmt stmt = For::make(op->name, new_min_var, new_extent, op->for_type, op->device_api, body);
+        stmt = For::make(op->name, new_min_var, new_extent, op->for_type, op->device_api, body);
         stmt = LetStmt::make(new_max_name, new_max, stmt);
         stmt = LetStmt::make(new_min_name, new_min, stmt);
         stmt = LetStmt::make(old_max_name, old_max, stmt);
@@ -421,6 +452,7 @@ class TrimNoOps : public IRMutator {
         debug(3) << "Rewrote loop.\n"
                  << "Old: " << Stmt(op) << "\n"
                  << "New: " << stmt << "\n";
+        );
 
         return stmt;
     }
