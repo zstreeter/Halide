@@ -14,18 +14,28 @@
 
 #include <chrono>
 
+thread_local std::string PROFILE_indent;
+
 #define PROFILE(...)            \
 [&]()                           \
 {                               \
     typedef std::chrono::high_resolution_clock clock_t; \
+    PROFILE_indent.push_back(' '); \
+    PROFILE_indent.push_back(' '); \
     auto ini = clock_t::now();  \
     __VA_ARGS__;                \
     auto end = clock_t::now();  \
+    if (!PROFILE_indent.empty()) PROFILE_indent.pop_back();  \
+    if (!PROFILE_indent.empty()) PROFILE_indent.pop_back();  \
     auto eps = std::chrono::duration<double>(end - ini).count();    \
     return(eps);                \
 }()
 
-#define PROFILE_P(label, ...) printf(#label "> %fs\n", PROFILE(__VA_ARGS__))
+#define PROFILE_P(label, ...) \
+{   \
+    auto eps = PROFILE(__VA_ARGS__);    \
+    printf("%s" #label "> %fs\n", PROFILE_indent.c_str(), eps); \
+}
 
 namespace Halide {
 namespace Internal {
@@ -199,7 +209,17 @@ class SimplifyUsingBounds : public IRMutator {
     using IRMutator::visit;
 
     // Can we prove a condition over the non-rectangular domain of the for loops we're in?
+    Expr common_subexpression_elimination_local(const Expr& expr)
+    {
+        Expr ret_expr;
+        PROFILE_P("common_subexpression_elimination()",
+        ret_expr = common_subexpression_elimination(expr);
+        );
+        return ret_expr;
+    };
     bool provably_true_over_domain(Expr test) {
+        bool ret;
+        PROFILE_P("provably_true_over_domain()",
         debug(3) << "Attempting to prove: " << test << "\n";
         for (size_t i = containing_loops.size(); i > 0; i--) {
             // Because the domain is potentially non-rectangular, we
@@ -218,7 +238,7 @@ class SimplifyUsingBounds : public IRMutator {
                 // can substitute directly.
                 // Need to call CSE here since simplify() is sometimes unable to simplify expr with
                 // non-trivial 'let' value, e.g. (let x = min(10, y-1) in (x < y))
-                test = common_subexpression_elimination(Let::make(loop.var, loop.i.min, test));
+                test = common_subexpression_elimination_local(Let::make(loop.var, loop.i.min, test));
             } else if (loop.i.is_bounded() &&
                        can_prove(loop.i.min >= loop.i.max) &&
                        expr_uses_var(test, loop.var)) {
@@ -227,8 +247,8 @@ class SimplifyUsingBounds : public IRMutator {
                 // the domain.
                 // Need to call CSE here since simplify() is sometimes unable to simplify expr with
                 // non-trivial 'let' value, e.g. (let x = 10 in x < y) || (let x = min(10, y-1) in (x < y))
-                test = common_subexpression_elimination(Let::make(loop.var, loop.i.min, test) ||
-                                                        Let::make(loop.var, loop.i.max, test));
+                test = common_subexpression_elimination_local(Let::make(loop.var, loop.i.min, test) ||
+                                                              Let::make(loop.var, loop.i.max, test));
             } else {
                 Scope<Interval> s;
                 // Rearrange the expression if possible so that the
@@ -243,50 +263,63 @@ class SimplifyUsingBounds : public IRMutator {
             test = simplify(test);
             debug(3) << " -> " << test << "\n";
         }
-        return is_one(test);
+        ret = is_one(test);
+        )
+        return ret;
     }
 
     Expr visit(const Min *op) override {
+        Expr expr;
+        PROFILE_P("SimplifyUsingBounds::visit(Max)",
         if (!op->type.is_int() || op->type.bits() < 32) {
-            return IRMutator::visit(op);
+            expr = IRMutator::visit(op);
         } else {
             Expr a = mutate(op->a);
             Expr b = mutate(op->b);
             Expr test = a <= b;
             if (provably_true_over_domain(a <= b)) {
-                return a;
+                expr = a;
             } else if (provably_true_over_domain(b <= a)) {
-                return b;
+                expr = b;
             } else {
-                return Min::make(a, b);
+                expr = Min::make(a, b);
             }
         }
+        );
+        return expr;
     }
 
     Expr visit(const Max *op) override {
+        Expr expr;
+        PROFILE_P("SimplifyUsingBounds::visit(Max)",
         if (!op->type.is_int() || op->type.bits() < 32) {
-            return IRMutator::visit(op);
+            expr = IRMutator::visit(op);
         } else {
             Expr a = mutate(op->a);
             Expr b = mutate(op->b);
             if (provably_true_over_domain(a >= b)) {
-                return a;
+                expr = a;
             } else if (provably_true_over_domain(b >= a)) {
-                return b;
+                expr = b;
             } else {
-                return Max::make(a, b);
+                expr = Max::make(a, b);
             }
         }
+        );
+        return expr;
     }
 
     template<typename Cmp>
     Expr visit_cmp(const Cmp *op) {
-        Expr expr = IRMutator::visit(op);
+        Expr expr;
+        PROFILE_P("SimplifyUsingBounds::visit_cmp()",
+        expr = IRMutator::visit(op);
         if (provably_true_over_domain(expr)) {
             expr = make_one(op->type);
         } else if (provably_true_over_domain(!expr)) {
             expr = make_zero(op->type);
         }
+        );
         return expr;
     }
 
@@ -316,10 +349,14 @@ class SimplifyUsingBounds : public IRMutator {
 
     template<typename StmtOrExpr, typename LetStmtOrLet>
     StmtOrExpr visit_let(const LetStmtOrLet *op) {
-        Expr value = mutate(op->value);
+        Expr value;
+        StmtOrExpr body;
+        PROFILE_P("SimplifyUsingBounds::visit(LetStmtOrLet)",
+        value = mutate(op->value);
         containing_loops.push_back({op->name, {value, value}});
-        StmtOrExpr body = mutate(op->body);
+        body = mutate(op->body);
         containing_loops.pop_back();
+        );
         return LetStmtOrLet::make(op->name, value, body);
     }
 
@@ -333,11 +370,16 @@ class SimplifyUsingBounds : public IRMutator {
 
     Stmt visit(const For *op) override {
         // Simplify the loop bounds.
-        Expr min = mutate(op->min);
-        Expr extent = mutate(op->extent);
+        Expr min;
+        Expr extent;
+        Stmt body;
+        PROFILE_P("SimplifyUsingBounds::visit(For)",
+        min = mutate(op->min);
+        extent = mutate(op->extent);
         containing_loops.push_back({op->name, {min, min + extent - 1}});
-        Stmt body = mutate(op->body);
+        body = mutate(op->body);
         containing_loops.pop_back();
+        );
         return For::make(op->name, min, extent, op->for_type, op->device_api, body);
     }
 public:
