@@ -217,6 +217,54 @@ class SimplifyUsingBounds : public IRMutator {
         );
         return ret_expr;
     };
+    bool expr_uses_var_local(Expr e, const std::string &v)
+    {
+        bool ret;
+        //PROFILE_P("expr_uses_var()",
+        ret = expr_uses_var(e, v);
+        //);
+        return ret;
+    }
+    bool can_prove_local(Expr e)
+    {
+        bool ret;
+        //PROFILE_P("can_prove()",
+        ret = can_prove(e);
+        //);
+        return ret;
+    }
+    SolverResult solve_expression_local(Expr e, const std::string &variable)
+    {
+        SolverResult ret;
+        PROFILE_P("solve_expression()",
+        ret = solve_expression(e, variable);
+        );
+        return ret;
+    }
+    Expr and_condition_over_domain_local(Expr c, const Scope<Interval> &varying)
+    {
+        Expr ret_expr;
+        PROFILE_P("and_condition_over_domain()",
+        ret_expr = and_condition_over_domain(c, varying);
+        );
+        return ret_expr;
+    }
+    Expr simplify_local(Expr e)
+    {
+        Expr ret_expr;
+        PROFILE_P("simplify()",
+        ret_expr = simplify(e);
+        );
+        return ret_expr;
+    }
+    bool is_one_local(const Expr& e)
+    {
+        bool ret;
+        //PROFILE_P("is_one()",
+        ret = is_one(e);
+        //);
+        return ret;
+    }
     bool provably_true_over_domain(Expr test) {
         bool ret;
         PROFILE_P("provably_true_over_domain()",
@@ -229,19 +277,19 @@ class SimplifyUsingBounds : public IRMutator {
             auto loop = containing_loops[i-1];
             if (is_const(test)) {
                 break;
-            } else if (!expr_uses_var(test, loop.var)) {
+            } else if (!expr_uses_var_local(test, loop.var)) {
                 continue;
             }  else if (loop.i.is_bounded() &&
-                        can_prove(loop.i.min == loop.i.max) &&
-                        expr_uses_var(test, loop.var)) {
+                        can_prove_local(loop.i.min == loop.i.max) &&
+                        expr_uses_var_local(test, loop.var)) {
                 // If min == max then either the domain only has one correct value, which we
                 // can substitute directly.
                 // Need to call CSE here since simplify() is sometimes unable to simplify expr with
                 // non-trivial 'let' value, e.g. (let x = min(10, y-1) in (x < y))
                 test = common_subexpression_elimination_local(Let::make(loop.var, loop.i.min, test));
             } else if (loop.i.is_bounded() &&
-                       can_prove(loop.i.min >= loop.i.max) &&
-                       expr_uses_var(test, loop.var)) {
+                       can_prove_local(loop.i.min >= loop.i.max) &&
+                       expr_uses_var_local(test, loop.var)) {
                 // If min >= max then either the domain only has one correct value,
                 // or the domain is empty, which implies both min/max are true under
                 // the domain.
@@ -253,24 +301,24 @@ class SimplifyUsingBounds : public IRMutator {
                 Scope<Interval> s;
                 // Rearrange the expression if possible so that the
                 // loop var only occurs once.
-                SolverResult solved = solve_expression(test, loop.var);
+                SolverResult solved = solve_expression_local(test, loop.var);
                 if (solved.fully_solved) {
                     test = solved.result;
                 }
                 s.push(loop.var, loop.i);
-                test = and_condition_over_domain(test, s);
+                test = and_condition_over_domain_local(test, s);
             }
-            test = simplify(test);
+            test = simplify_local(test);
             debug(3) << " -> " << test << "\n";
         }
-        ret = is_one(test);
-        )
+        ret = is_one_local(test);
+        );
         return ret;
     }
 
     Expr visit(const Min *op) override {
         Expr expr;
-        PROFILE_P("SimplifyUsingBounds::visit(Max)",
+        //PROFILE_P("SimplifyUsingBounds::visit(Min)",
         if (!op->type.is_int() || op->type.bits() < 32) {
             expr = IRMutator::visit(op);
         } else {
@@ -285,13 +333,13 @@ class SimplifyUsingBounds : public IRMutator {
                 expr = Min::make(a, b);
             }
         }
-        );
+        //);
         return expr;
     }
 
     Expr visit(const Max *op) override {
         Expr expr;
-        PROFILE_P("SimplifyUsingBounds::visit(Max)",
+        //PROFILE_P("SimplifyUsingBounds::visit(Max)",
         if (!op->type.is_int() || op->type.bits() < 32) {
             expr = IRMutator::visit(op);
         } else {
@@ -305,58 +353,82 @@ class SimplifyUsingBounds : public IRMutator {
                 expr = Max::make(a, b);
             }
         }
-        );
+        //);
         return expr;
     }
 
     template<typename Cmp>
     Expr visit_cmp(const Cmp *op) {
         Expr expr;
-        PROFILE_P("SimplifyUsingBounds::visit_cmp()",
+        //PROFILE_P("SimplifyUsingBounds::visit_cmp()",
         expr = IRMutator::visit(op);
         if (provably_true_over_domain(expr)) {
             expr = make_one(op->type);
         } else if (provably_true_over_domain(!expr)) {
             expr = make_zero(op->type);
         }
-        );
+        //);
         return expr;
     }
 
     Expr visit(const LE *op) override {
-        return visit_cmp(op);
+        Expr ret_expr;
+        //PROFILE_P("SimplifyUsingBounds::visit(LE)",
+        ret_expr = visit_cmp(op);
+        //);
+        return ret_expr;
     }
 
     Expr visit(const LT *op) override {
-        return visit_cmp(op);
+        Expr ret_expr;
+        //PROFILE_P("SimplifyUsingBounds::visit(LT)",
+        ret_expr = visit_cmp(op);
+        //);
+        return ret_expr;
     }
 
     Expr visit(const GE *op) override {
-        return visit_cmp(op);
+        Expr ret_expr;
+        //PROFILE_P("SimplifyUsingBounds::visit(GE)",
+        ret_expr = visit_cmp(op);
+        //);
+        return ret_expr;
     }
 
     Expr visit(const GT *op) override {
-        return visit_cmp(op);
+        Expr ret_expr;
+        //PROFILE_P("SimplifyUsingBounds::visit(GT)",
+        ret_expr = visit_cmp(op);
+        //);
+        return ret_expr;
     }
 
     Expr visit(const EQ *op) override {
-        return visit_cmp(op);
+        Expr ret_expr;
+        //PROFILE_P("SimplifyUsingBounds::visit(EQ)",
+        ret_expr = visit_cmp(op);
+        //);
+        return ret_expr;
     }
 
     Expr visit(const NE *op) override {
-        return visit_cmp(op);
+        Expr ret_expr;
+        //PROFILE_P("SimplifyUsingBounds::visit(NE)",
+        ret_expr = visit_cmp(op);
+        //);
+        return ret_expr;
     }
 
     template<typename StmtOrExpr, typename LetStmtOrLet>
     StmtOrExpr visit_let(const LetStmtOrLet *op) {
         Expr value;
         StmtOrExpr body;
-        PROFILE_P("SimplifyUsingBounds::visit(LetStmtOrLet)",
+        //PROFILE_P("SimplifyUsingBounds::visit(LetStmtOrLet)",
         value = mutate(op->value);
         containing_loops.push_back({op->name, {value, value}});
         body = mutate(op->body);
         containing_loops.pop_back();
-        );
+        //);
         return LetStmtOrLet::make(op->name, value, body);
     }
 
@@ -402,21 +474,21 @@ class TrimNoOps : public IRMutator {
         }
 
         Stmt body;
-        PROFILE_P("TrimNoOps::visit(For) -- body = mutate()",
+        //PROFILE_P("TrimNoOps::visit(For) -- body = mutate()",
         body = mutate(op->body);
-        );
+        //);
 
         debug(3) << "\n\n ***** Trim no ops in loop over " << op->name << "\n";
 
         IsNoOp is_no_op;
-        PROFILE_P("TrimNoOps::visit(For) -- body.accept()",
+        //PROFILE_P("TrimNoOps::visit(For) -- IsNoOp -- body.accept()",
         body.accept(&is_no_op);
-        );
+        //);
         debug(3) << "Condition is " << is_no_op.condition << "\n";
 
-        PROFILE_P("TrimNoOps::visit(For) -- simplify(simplify(common_subexpression_elimination()))",
+        //PROFILE_P("TrimNoOps::visit(For) -- simplify(simplify(common_subexpression_elimination()))",
         is_no_op.condition = simplify(simplify(common_subexpression_elimination(is_no_op.condition)));
-        );
+        //);
 
         debug(3) << "Simplified condition is " << is_no_op.condition << "\n";
 
@@ -432,9 +504,9 @@ class TrimNoOps : public IRMutator {
         // can trim the loop bounds over which the loop does
         // something.
         Interval i;
-        PROFILE_P("TrimNoOps::visit(For) -- solve_for_outer_interval",
+        //PROFILE_P("TrimNoOps::visit(For) -- solve_for_outer_interval",
         i = solve_for_outer_interval(!is_no_op.condition, op->name);
-        );
+        //);
 
         debug(3) << "Interval is: " << i.min << ", " << i.max << "\n";
 
@@ -455,7 +527,7 @@ class TrimNoOps : public IRMutator {
         );
 
         Stmt stmt;
-        PROFILE_P("TrimNoOps::visit(For) -- tail",
+        //PROFILE_P("TrimNoOps::visit(For) -- tail",
         string new_min_name = unique_name(op->name + ".new_min");
         string new_max_name = unique_name(op->name + ".new_max");
         string old_max_name = unique_name(op->name + ".old_max");
@@ -494,7 +566,7 @@ class TrimNoOps : public IRMutator {
         debug(3) << "Rewrote loop.\n"
                  << "Old: " << Stmt(op) << "\n"
                  << "New: " << stmt << "\n";
-        );
+        //);
 
         return stmt;
     }
