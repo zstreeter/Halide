@@ -166,13 +166,11 @@ public:
             }
         }
         // If next region is free, combine with it
-        if (it != regions.end()) {
-            auto next = std::next(it);
-            if (!next->second.used) {
-                bddebug(2) << "combine next: "<< next->first << " w/ " << it->first << " " << "\n";
-                it->second.size += next->second.size;
-                regions.erase(next);
-            }
+        auto next = std::next(it);
+        if (next != regions.end() && !next->second.used) {
+            bddebug(2) << "combine next: "<< next->first << " w/ " << it->first << " " << "\n";
+            it->second.size += next->second.size;
+            regions.erase(next);
         }
 
         bddebug(1) << "end free_region " << start << "\n";
@@ -502,12 +500,12 @@ wasm32_ptr_t v8_WasmMemoryObject_malloc(const Local<Context> &context, size_t si
         p = bdmalloc->alloc_region(size);
     }
 
-    wdebug(0)<<"allocation of "<<size<<" at: "<<p<<"\n";
+    wdebug(2)<<"allocation of "<<size<<" at: "<<p<<"\n";
     return p;
 }
 
 void v8_WasmMemoryObject_free(const Local<Context> &context, wasm32_ptr_t ptr) {
-    wdebug(0)<<"freeing ptr at: "<<ptr<<"\n";
+    wdebug(2)<<"freeing ptr at: "<<ptr<<"\n";
     BDMalloc *bdmalloc = (BDMalloc *) context->GetAlignedPointerFromEmbedderData(kBDMallocPtr);
     bdmalloc->free_region(ptr);
 }
