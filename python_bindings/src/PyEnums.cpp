@@ -73,7 +73,7 @@ void define_enums(py::module &m) {
         .value("IOS", Target::OS::IOS)
         .value("QuRT", Target::OS::QuRT)
         .value("NoOS", Target::OS::NoOS)
-        .value("wasmrt", Target::OS::WebAssemblySingleThreadedRuntime);
+        .value("wasmrt", Target::OS::WebAssemblyRuntime);
 
     py::enum_<Target::Arch>(m, "TargetArch")
         .value("ArchUnknown", Target::Arch::ArchUnknown)
@@ -144,6 +144,7 @@ void define_enums(py::module &m) {
         .value("EmbedBitcode", Target::Feature::EmbedBitcode)
         .value("DisableLLVMLoopVectorize", Target::Feature::DisableLLVMLoopVectorize)
         .value("DisableLLVMLoopUnroll", Target::Feature::DisableLLVMLoopUnroll)
+        .value("WasmSimd128", Target::Feature::WasmSimd128)
         .value("FeatureEnd", Target::Feature::FeatureEnd);
 
     py::enum_<halide_type_code_t>(m, "TypeCode")

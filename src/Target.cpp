@@ -268,7 +268,7 @@ const std::map<std::string, Target::OS> os_name_map = {
     {"qurt", Target::QuRT},
     {"noos", Target::NoOS},
     {"fuchsia", Target::Fuchsia},
-    {"wasmrt", Target::WebAssemblySingleThreadedRuntime}
+    {"wasmrt", Target::WebAssemblyRuntime}
 };
 
 bool lookup_os(const std::string &tok, Target::OS &result) {

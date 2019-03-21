@@ -32,7 +32,7 @@ struct Target {
         QuRT,
         NoOS,
         Fuchsia,
-        WebAssemblySingleThreadedRuntime
+        WebAssemblyRuntime
     } os;
 
     /** The architecture used by the target. Determines the

@@ -35,7 +35,7 @@ string CodeGen_WebAssembly::mattrs() const {
         user_warning << "Wasm simd128 isn't quite ready yet";
     }
 
-    user_assert(target.os == Target::WebAssemblySingleThreadedRuntime)
+    user_assert(target.os == Target::WebAssemblyRuntime)
         << "wasmrt is the only supported 'os' for WebAssembly at this time.";
 
     // TODO: Emscripten doesn't seem to be able to validate wasm that contains this yet,
