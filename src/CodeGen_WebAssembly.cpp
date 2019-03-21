@@ -35,6 +35,10 @@ string CodeGen_WebAssembly::mattrs() const {
         user_warning << "Wasm simd128 isn't quite ready yet";
     }
 
+    if (target.has_feature(Target::WasmThreads)) {
+        s += ",+atomics";
+    }
+
     user_assert(target.os == Target::WebAssemblyRuntime)
         << "wasmrt is the only supported 'os' for WebAssembly at this time.";
 

@@ -360,6 +360,7 @@ const std::map<std::string, Target::Feature> feature_name_map = {
     {"disable_llvm_loop_vectorize", Target::DisableLLVMLoopVectorize},
     {"disable_llvm_loop_unroll", Target::DisableLLVMLoopUnroll},
     {"wasm_simd_128", Target::WasmSimd128},
+    {"wasm_threads", Target::WasmThreads},
     // NOTE: When adding features to this map, be sure to update
     // PyEnums.cpp and halide.cmake as well.
 };

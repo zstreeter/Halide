@@ -725,7 +725,15 @@ std::unique_ptr<llvm::Module> get_initial_module_for_target(Target t, llvm::LLVM
                 modules.push_back(get_initmod_posix_io(c, bits_64, debug));
                 modules.push_back(get_initmod_linux_host_cpu_count(c, bits_64, debug));
                 modules.push_back(get_initmod_linux_yield(c, bits_64, debug));
-                modules.push_back(get_initmod_fake_thread_pool(c, bits_64, debug));
+                if (t.has_feature(Target::WasmThreads)) {
+                    if (tsan) {
+                        modules.push_back(get_initmod_posix_threads_tsan(c, bits_64, debug));
+                    } else {
+                        modules.push_back(get_initmod_posix_threads(c, bits_64, debug));
+                    }
+                } else {
+                    modules.push_back(get_initmod_fake_thread_pool(c, bits_64, debug));
+                }
                 modules.push_back(get_initmod_fake_get_symbol(c, bits_64, debug));
             } else if (t.os == Target::OSX) {
                 modules.push_back(get_initmod_posix_allocator(c, bits_64, debug));
@@ -953,7 +961,9 @@ std::unique_ptr<llvm::Module> get_initial_module_for_target(Target t, llvm::LLVM
                 modules.push_back(get_initmod_x86_avx2_ll(c));
             }
             if (t.has_feature(Target::Profile)) {
-                user_assert(t.os != Target::WebAssemblyRuntime) << "The profiler cannot be used in a threadless environment.";
+                if (t.os == Target::WebAssemblyRuntime) {
+                    user_assert(t.has_feature(Target::WasmThreads)) << "The profiler cannot be used in a threadless environment.";
+                }
                 modules.push_back(get_initmod_profiler_inlined(c, bits_64, debug));
             }
         }

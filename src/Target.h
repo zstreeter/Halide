@@ -116,6 +116,7 @@ struct Target {
         DisableLLVMLoopVectorize = halide_target_feature_disable_llvm_loop_vectorize,
         DisableLLVMLoopUnroll = halide_target_feature_disable_llvm_loop_unroll,
         WasmSimd128 = halide_target_feature_wasm_simd_128,
+        WasmThreads = halide_target_feature_wasm_threads,
         FeatureEnd = halide_target_feature_end
     };
     Target() : os(OSUnknown), arch(ArchUnknown), bits(0) {}
