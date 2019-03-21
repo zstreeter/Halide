@@ -7,6 +7,56 @@
 #include "Substitute.h"
 #include "ConciseCasts.h"
 
+#include <chrono>
+
+extern std::string PROFILE_indent;
+extern bool PROFILE_enabled;
+
+#define PROFILE(...)            \
+[&]()                           \
+{                               \
+    typedef std::chrono::high_resolution_clock clock_t; \
+    PROFILE_indent.push_back(' '); \
+    PROFILE_indent.push_back(' '); \
+    auto ini = clock_t::now();  \
+    __VA_ARGS__;                \
+    auto end = clock_t::now();  \
+    if (!PROFILE_indent.empty()) PROFILE_indent.pop_back();  \
+    if (!PROFILE_indent.empty()) PROFILE_indent.pop_back();  \
+    auto eps = std::chrono::duration<double>(end - ini).count();    \
+    return(eps);                \
+}()
+
+#define PROFILE_P(label, ...) \
+{   \
+    auto eps = PROFILE(__VA_ARGS__);    \
+    if (PROFILE_enabled) \
+    printf("%s" #label "> %fs\n", PROFILE_indent.c_str(), eps); \
+}
+
+struct ProfileScope
+{
+    typedef std::chrono::high_resolution_clock clock_t;
+    clock_t::time_point ini;
+    const char* tagline;
+    ProfileScope(const char* msg)
+    {
+        tagline = msg;
+        PROFILE_indent.push_back(' ');
+        PROFILE_indent.push_back(' ');
+        ini = clock_t::now();
+    }
+    ~ProfileScope()
+    {
+        auto end = clock_t::now();
+        PROFILE_indent.pop_back();
+        PROFILE_indent.pop_back();
+        auto eps = std::chrono::duration<double>(end - ini).count();
+        if (PROFILE_enabled)
+        printf("%s%s> %fs\n", PROFILE_indent.c_str(), tagline, eps);
+    }
+};
+
 namespace Halide {
 namespace Internal {
 
@@ -115,6 +165,7 @@ private:
     }
 
     Expr visit(const Add *op) override {
+        ProfileScope prof ("SolveExpression::visit(Add)");
         bool old_uses_var = uses_var;
         uses_var = false;
         bool old_failed = failed;
@@ -202,6 +253,7 @@ private:
     }
 
     Expr visit(const Sub *op) override {
+        ProfileScope prof ("SolveExpression::visit(Sub)");
         bool old_uses_var = uses_var;
         uses_var = false;
         bool old_failed = failed;
@@ -294,6 +346,7 @@ private:
     }
 
     Expr visit(const Mul *op) override {
+        ProfileScope prof ("SolveExpression::visit(Mul)");
         bool old_uses_var = uses_var;
         uses_var = false;
         bool old_failed = failed;
@@ -355,7 +408,14 @@ private:
         return expr;
     }
 
+    bool can_prove_stub(Expr e)
+    {
+        ProfileScope prof ("SolveExpression::can_prove");
+        return can_prove(e);
+    }
+
     Expr visit(const Div *op) override {
+        ProfileScope prof ("SolveExpression::visit(Div)");
         bool old_uses_var = uses_var;
         uses_var = false;
         bool old_failed = failed;
@@ -378,15 +438,15 @@ private:
         Expr expr;
         if (a_uses_var && !b_uses_var) {
             if (add_a && !a_failed &&
-                can_prove(add_a->a / b * b == add_a->a)) {
+                can_prove_stub(add_a->a / b * b == add_a->a)) {
                 // (f(x) + a) / b -> f(x) / b + a / b
                 expr = mutate(simplify(add_a->a / b) + add_a->b / b);
             } else if (sub_a && !a_failed &&
-                       can_prove(sub_a->a / b * b == sub_a->a)) {
+                       can_prove_stub(sub_a->a / b * b == sub_a->a)) {
                 // (f(x) - a) / b -> f(x) / b - a / b
                 expr = mutate(simplify(sub_a->a / b) - sub_a->b / b);
             } else if (mul_a && !a_failed && no_overflow_int(op->type) &&
-                       can_prove(mul_a->b / b * b == mul_a->b)) {
+                       can_prove_stub(mul_a->b / b * b == mul_a->b)) {
                 // (f(x) * a) / b -> f(x) * (a / b)
                 expr = mutate(mul_a->a * (mul_a->b / b));
             }
@@ -406,6 +466,7 @@ private:
     }
 
     Expr visit(const Call *op) override {
+        ProfileScope prof ("SolveExpression::visit(Call)");
         // Ignore likely intrinsics
         if (op->is_intrinsic(Call::likely) ||
             op->is_intrinsic(Call::likely_if_innermost)) {
@@ -522,10 +583,12 @@ private:
     }
 
     Expr visit(const Min *op) override {
+        ProfileScope prof ("SolveExpression::visit(Min)");
         return visit_min_max_op(op, true);
     }
 
     Expr visit(const Max *op) override {
+        ProfileScope prof ("SolveExpression::visit(Max)");
         return visit_min_max_op(op, false);
     }
 
@@ -594,10 +657,12 @@ private:
     }
 
     Expr visit(const Or *op) override {
+        ProfileScope prof ("SolveExpression::visit(Or)");
         return visit_and_or_op(op);
     }
 
     Expr visit(const And *op) override {
+        ProfileScope prof ("SolveExpression::visit(And)");
         return visit_and_or_op(op);
     }
 
@@ -735,30 +800,37 @@ private:
     }
 
     Expr visit(const LT *op) override {
+        ProfileScope prof ("SolveExpression::visit(LT)");
         return visit_cmp<LT, GT>(op);
     }
 
     Expr visit(const LE *op) override {
+        ProfileScope prof ("SolveExpression::visit(LE)");
         return visit_cmp<LE, GE>(op);
     }
 
     Expr visit(const GE *op) override {
+        ProfileScope prof ("SolveExpression::visit(GE)");
         return visit_cmp<GE, LE>(op);
     }
 
     Expr visit(const GT *op) override {
+        ProfileScope prof ("SolveExpression::visit(GT)");
         return visit_cmp<GT, LT>(op);
     }
 
     Expr visit(const EQ *op) override {
+        ProfileScope prof ("SolveExpression::visit(EQ)");
         return visit_cmp<EQ, EQ>(op);
     }
 
     Expr visit(const NE *op) override {
+        ProfileScope prof ("SolveExpression::visit(NE)");
         return visit_cmp<NE, NE>(op);
     }
 
     Expr visit(const Variable *op) override {
+        ProfileScope prof ("SolveExpression::visit(Variable)");
         if (op->name == var) {
             uses_var = true;
             return op;
@@ -778,6 +850,7 @@ private:
     }
 
     Expr visit(const Let *op) override {
+        ProfileScope prof ("SolveExpression::visit(Let)");
         bool old_uses_var = uses_var;
         uses_var = false;
         Expr value = mutate(op->value);
@@ -1374,9 +1447,14 @@ public:
 
 SolverResult solve_expression(Expr e, const std::string &variable, const Scope<Expr> &scope) {
     SolveExpression solver(variable, scope);
-    Expr new_e = solver.mutate(e);
+    Expr new_e;
+    PROFILE_P("Solver::solver.mutate(e)",
+    new_e = solver.mutate(e);
+    );
     // The process has expanded lets. Re-collect them.
+    //PROFILE_P("Solver::CSE(e)",
     new_e = common_subexpression_elimination(new_e);
+    //);
     debug(3) << "Solved expr for " << variable << " :\n"
              << "  " << e << "\n"
              << "  " << new_e << "\n";

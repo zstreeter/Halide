@@ -14,7 +14,8 @@
 
 #include <chrono>
 
-thread_local std::string PROFILE_indent;
+extern std::string PROFILE_indent;
+extern bool PROFILE_enabled;
 
 #define PROFILE(...)            \
 [&]()                           \
@@ -34,6 +35,7 @@ thread_local std::string PROFILE_indent;
 #define PROFILE_P(label, ...) \
 {   \
     auto eps = PROFILE(__VA_ARGS__);    \
+    if (PROFILE_enabled) \
     printf("%s" #label "> %fs\n", PROFILE_indent.c_str(), eps); \
 }
 
@@ -244,9 +246,9 @@ class SimplifyUsingBounds : public IRMutator {
     Expr and_condition_over_domain_local(Expr c, const Scope<Interval> &varying)
     {
         Expr ret_expr;
-        PROFILE_P("and_condition_over_domain()",
+        //PROFILE_P("and_condition_over_domain()",
         ret_expr = and_condition_over_domain(c, varying);
-        );
+        //);
         return ret_expr;
     }
     Expr simplify_local(Expr e)

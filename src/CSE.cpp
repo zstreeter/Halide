@@ -7,6 +7,33 @@
 #include "Scope.h"
 #include "Simplify.h"
 
+#include <chrono>
+
+extern std::string PROFILE_indent;
+extern bool PROFILE_enabled;
+
+#define PROFILE(...)            \
+[&]()                           \
+{                               \
+    typedef std::chrono::high_resolution_clock clock_t; \
+    PROFILE_indent.push_back(' '); \
+    PROFILE_indent.push_back(' '); \
+    auto ini = clock_t::now();  \
+    __VA_ARGS__;                \
+    auto end = clock_t::now();  \
+    if (!PROFILE_indent.empty()) PROFILE_indent.pop_back();  \
+    if (!PROFILE_indent.empty()) PROFILE_indent.pop_back();  \
+    auto eps = std::chrono::duration<double>(end - ini).count();    \
+    return(eps);                \
+}()
+
+#define PROFILE_P(label, ...) \
+{   \
+    auto eps = PROFILE(__VA_ARGS__);    \
+    if (PROFILE_enabled) \
+    printf("%s" #label "> %fs\n", PROFILE_indent.c_str(), eps); \
+}
+
 namespace Halide {
 namespace Internal {
 
@@ -167,35 +194,47 @@ public:
 
     Expr visit(const Let *let) override {
         // Visit the value and add it to the numbering.
-        Expr value = mutate(let->value);
+        Expr value;
+        Expr body;
+        //PROFILE_P("GVN::visit(Let)",
+        value = mutate(let->value);
 
         // Make references to the variable point to the value instead.
         let_substitutions.push(let->name, number);
 
         // Visit the body and add it to the numbering.
-        Expr body = mutate(let->body);
+        body = mutate(let->body);
 
         let_substitutions.pop(let->name);
-
+        //);
         // Just return the body. We've removed the Let.
         return body;
     }
 
     Expr visit(const Load *op) override {
-        Expr predicate = op->predicate;
+        Expr predicate;
+        Expr index;
+        Expr ret;
+        //PROFILE_P("GVN::visit(Load)",
+        predicate = op->predicate;
         // If the predicate is trivially true, there is no point to lift it out
         if (!is_one(predicate)) {
             predicate = mutate(op->predicate);
         }
-        Expr index = mutate(op->index);
+        index = mutate(op->index);
         if (predicate.same_as(op->predicate) && index.same_as(op->index)) {
-            return op;
+            ret = op;
         }
-        return Load::make(op->type, op->name, index, op->image, op->param, predicate, op->alignment);
+        //);
+        ret = Load::make(op->type, op->name, index, op->image, op->param, predicate, op->alignment);
+        return ret;
     }
 
     Stmt visit(const Store *op) override {
-        Expr predicate = op->predicate;
+        Expr predicate;
+        Stmt ret;
+        //PROFILE_P("GVN::visit(Store)",
+        predicate = op->predicate;
         // If the predicate is trivially true, there is no point to lift it out
         if (!is_one(predicate)) {
             predicate = mutate(op->predicate);
@@ -203,10 +242,12 @@ public:
         Expr value = mutate(op->value);
         Expr index = mutate(op->index);
         if (predicate.same_as(op->predicate) && value.same_as(op->value) && index.same_as(op->index)) {
-            return op;
+            ret = op;
         } else {
-            return Store::make(op->name, value, index, op->param, predicate, op->alignment);
+            ret = Store::make(op->name, value, index, op->param, predicate, op->alignment);
         }
+        //);
+        return ret;
     }
 };
 
@@ -291,10 +332,14 @@ Expr common_subexpression_elimination(const Expr &e_in, bool lift_all) {
     debug(4) << "\n\n\nInput to letify " << e << "\n";
 
     GVN gvn;
+    PROFILE_P("CSE::gvn.mutate(e)",
     e = gvn.mutate(e);
+    );
 
     ComputeUseCounts count_uses(gvn, lift_all);
+    //PROFILE_P("CSE::count_uses.include(e)",
     count_uses.include(e);
+    //);
 
     debug(4) << "Canonical form without lets " << e << "\n";
 
@@ -302,6 +347,7 @@ Expr common_subexpression_elimination(const Expr &e_in, bool lift_all) {
     vector<pair<string, Expr>> lets;
     vector<Expr> new_version(gvn.entries.size());
     map<Expr, Expr, ExprCompare> replacements;
+    //PROFILE_P("CSE::for-loop-1",
     for (size_t i = 0; i < gvn.entries.size(); i++) {
         const GVN::Entry &e = gvn.entries[i];
         Expr old = e.expr;
@@ -313,13 +359,17 @@ Expr common_subexpression_elimination(const Expr &e_in, bool lift_all) {
         }
         debug(4) << i << ": " << e.expr << ", " << e.use_count << "\n";
     }
+    //);
 
     // Rebuild the expr to include references to the variables:
     Replacer replacer(replacements);
+    //PROFILE_P("CSE::replacer.mutate(e)",
     e = replacer.mutate(e);
+    //);
 
     debug(4) << "With variables " << e << "\n";
 
+    //PROFILE_P("CSE::for-loop-2",
     // Wrap the final expr in the lets.
     for (size_t i = lets.size(); i > 0; i--) {
         Expr value = lets[i-1].second;
@@ -329,6 +379,7 @@ Expr common_subexpression_elimination(const Expr &e_in, bool lift_all) {
         value = replacer.mutate(lets[i-1].second);
         e = Let::make(lets[i-1].first, value, e);
     }
+    //);
 
     debug(4) << "With lets: " << e << "\n";
 

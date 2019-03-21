@@ -71,18 +71,30 @@
 
 #include <chrono>
 
+std::string PROFILE_indent;
+bool PROFILE_enabled = false;
+
 #define PROFILE(...)            \
 [&]()                           \
 {                               \
     typedef std::chrono::high_resolution_clock clock_t; \
+    PROFILE_indent.push_back(' '); \
+    PROFILE_indent.push_back(' '); \
     auto ini = clock_t::now();  \
     __VA_ARGS__;                \
     auto end = clock_t::now();  \
+    if (!PROFILE_indent.empty()) PROFILE_indent.pop_back();  \
+    if (!PROFILE_indent.empty()) PROFILE_indent.pop_back();  \
     auto eps = std::chrono::duration<double>(end - ini).count();    \
     return(eps);                \
 }()
 
-#define PROFILE_P(label, ...) printf(#label "> %fs\n", PROFILE(__VA_ARGS__))
+#define PROFILE_P(label, ...) \
+{   \
+    auto eps = PROFILE(__VA_ARGS__);    \
+    if (PROFILE_enabled) \
+    printf("%s" #label "> %fs\n", PROFILE_indent.c_str(), eps); \
+}
 
 namespace Halide {
 namespace Internal {
@@ -402,9 +414,11 @@ Module lower(const vector<Function> &output_funcs,
     debug(2) << "Lowering after partitioning loops:\n" << s << "\n\n";
 
     debug(1) << "Trimming loops to the region over which they do something...\n";
+    PROFILE_enabled = false;
     PROFILE_P("trim_no_ops",
     s = trim_no_ops(s);
     );
+    PROFILE_enabled = false;
     debug(2) << "Lowering after loop trimming:\n" << s << "\n\n";
 
     debug(1) << "Injecting early frees...\n";
