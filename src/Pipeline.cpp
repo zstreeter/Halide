@@ -161,34 +161,16 @@ Pipeline::Pipeline(const vector<Func> &outputs)
 
 vector<Func> Pipeline::outputs() const {
     vector<Func> funcs;
-    for (Function f : contents->outputs) {
-        funcs.push_back(Func(f));
+    for (const Function& f : contents->outputs) {
+        funcs.emplace_back(f);
     }
     return funcs;
 }
 
-/* static */
-void Pipeline::auto_schedule_Mullapudi2016(Pipeline pipeline, const Target &target,
-                                           const MachineParams &arch_params, AutoSchedulerResults *outputs) {
-    AutoSchedulerResults results;
-    results.target = target;
-    results.machine_params_string = arch_params.to_string();
-
-    user_assert(target.arch == Target::X86 || target.arch == Target::ARM ||
-                target.arch == Target::POWERPC || target.arch == Target::MIPS)
-        << "The Mullapudi2016 autoscheduler is currently supported only on these architectures." << (int)target.arch;
-    results.scheduler_name = "Mullapudi2016";
-    results.schedule_source = generate_schedules(pipeline.contents->outputs, target, arch_params);
-    // this autoscheduler has no featurization
-
-    *outputs = results;
-}
 
 /* static */
 std::map<std::string, AutoSchedulerFn> &Pipeline::get_autoscheduler_map() {
-    static std::map<std::string, AutoSchedulerFn> autoschedulers = {
-        { "Mullapudi2016", auto_schedule_Mullapudi2016 }
-    };
+    static std::map<std::string, AutoSchedulerFn> autoschedulers = {};
     return autoschedulers;
 }
 
@@ -201,6 +183,9 @@ std::string &Pipeline::get_default_autoscheduler_name() {
 /* static */
 AutoSchedulerFn Pipeline::find_autoscheduler(const std::string &autoscheduler_name) {
     const auto &m = get_autoscheduler_map();
+    if (m.empty()) {
+        load_plugin("hlsched_classic");
+    }
     auto it = m.find(autoscheduler_name);
     if (it == m.end()) {
         std::ostringstream o;
@@ -1308,6 +1293,29 @@ JITExtern::JITExtern(Func func)
 
 JITExtern::JITExtern(const ExternCFunction &extern_c_function)
     : extern_c_function_(extern_c_function) {
+}
+
+MachineParams MachineParams::generic() {
+    std::string params = Internal::get_env_variable("HL_MACHINE_PARAMS");
+    if (params.empty()) {
+        return MachineParams(16, 16 * 1024 * 1024, 40);
+    } else {
+        return MachineParams(params);
+    }
+}
+
+std::string MachineParams::to_string() const {
+    std::ostringstream o;
+    o << parallelism << "," << last_level_cache_size << "," << balance;
+    return o.str();
+}
+
+MachineParams::MachineParams(const std::string &s) {
+    std::vector<std::string> v = Internal::split_string(s, ",");
+    user_assert(v.size() == 3) << "Unable to parse MachineParams: " << s;
+    parallelism = std::atoi(v[0].c_str());
+    last_level_cache_size = std::atoll(v[1].c_str());
+    balance = std::atof(v[2].c_str());
 }
 
 }  // namespace Halide
