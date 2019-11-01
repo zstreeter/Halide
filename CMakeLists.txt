@@ -429,6 +429,10 @@ else()
   message(STATUS "Building tests disabled")
 endif()
 
+# ------------------------------------------------
+# autoscheduler plugins
+add_subdirectory(autoschedulers)
+
 option(WITH_APPS "Build apps" ON)
 if (WITH_APPS)
   message(STATUS "Building apps enabled")

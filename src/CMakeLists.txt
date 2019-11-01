@@ -786,5 +786,3 @@ install(TARGETS Halide
         RUNTIME DESTINATION bin
         LIBRARY DESTINATION bin
         ARCHIVE DESTINATION lib)
-
-add_subdirectory(autoscheduler)
