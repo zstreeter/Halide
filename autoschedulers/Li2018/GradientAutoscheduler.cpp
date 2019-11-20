@@ -796,7 +796,7 @@ void generate_schedule(const std::vector<Function> &outputs,
     for (const auto &output : outputs) {
         const FuncSchedule &schedule = output.schedule();
         const std::vector<Bound> &estimates = schedule.estimates();
-        
+
         std::vector<Interval> b;
         b.reserve(output.args().size());
         for (const auto &arg : output.args()) {

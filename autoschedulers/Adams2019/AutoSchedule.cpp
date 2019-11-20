@@ -391,7 +391,7 @@ struct State {
             for (auto it = n.stages.rbegin(); it != n.stages.rend(); it++) {
                 internal_assert(features.contains(&*it)) << n.func.name() << "\n";
                 const auto &feat = features.get(&*it);
-                for (size_t i = 0; i < ScheduleFeatures::num_features(); i++) {
+                for (int i = 0; i < ScheduleFeatures::num_features(); i++) {
                     schedule_features(i, stage) = feat[i];
                 }
                 stage += 1;

@@ -1,9 +1,9 @@
-#ifndef ASLOG_H
-#define ASLOG_H
+#ifndef AUTOSCHEDULERS_COMMON_ASLOG_H
+#define AUTOSCHEDULERS_COMMON_ASLOG_H
 
 // This class is used by train_cost_model, which doesn't link to
 // libHalide, so (despite the namespace) we are better off not
-// including Halide.h, lest we reference something we won't have available 
+// including Halide.h, lest we reference something we won't have available
 
 #include <cstdlib>
 #include <iostream>
@@ -32,4 +32,4 @@ public:
 }  // namespace Internal
 }  // namespace Halide
 
-#endif
+#endif  // AUTOSCHEDULERS_COMMON_ASLOG_H

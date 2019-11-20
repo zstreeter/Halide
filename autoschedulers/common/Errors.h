@@ -1,5 +1,5 @@
-#ifndef ERRORS_H
-#define ERRORS_H
+#ifndef AUTOSCHEDULERS_COMMON_ERRORS_H
+#define AUTOSCHEDULERS_COMMON_ERRORS_H
 
 #include "Halide.h"
 
@@ -23,4 +23,4 @@
 #define internal_error            Halide::Internal::ErrorReport(__FILE__, __LINE__, nullptr, 0)
 #endif
 
-#endif
+#endif  // AUTOSCHEDULERS_COMMON_ERRORS_H

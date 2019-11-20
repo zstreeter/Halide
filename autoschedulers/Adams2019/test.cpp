@@ -5,7 +5,7 @@ using namespace Halide;
 int main(int argc, char **argv) {
     // Loads lib auto_schedule.so (or auto_schedule.dll),
     // which is presumed to be in current library search path
-    load_plugin("auto_schedule");
+    load_plugin("halide_scheduler_Adams2019");
     Pipeline::set_default_autoscheduler_name("Adams2019");
 
     MachineParams params(32, 16000000, 40);

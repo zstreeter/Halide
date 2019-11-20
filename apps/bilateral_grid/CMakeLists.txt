@@ -13,4 +13,5 @@ foreach(AUTO_SCHEDULE false true)
                                   GENERATOR_ARGS auto_schedule=${AUTO_SCHEDULE}
                                   EXTRA_OUTPUTS stmt schedule)
     target_link_libraries(bilateral_grid_process PRIVATE ${LIB})
+    add_dependencies(${LIB} halide_scheduler_Mullapudi2016)
 endforeach()

@@ -1,6 +1,7 @@
-
 project(Halide)
 cmake_minimum_required(VERSION 3.3)
+
+cmake_policy(SET CMP0079 NEW)
 
 set(HALIDE_BASE_DIR   "${CMAKE_CURRENT_SOURCE_DIR}")
 
@@ -429,6 +430,10 @@ if (WITH_TESTS)
 else()
   message(STATUS "Building tests disabled")
 endif()
+
+# ------------------------------------------------
+# autoscheduler plugins
+add_subdirectory(autoschedulers)
 
 option(WITH_APPS "Build apps" ON)
 if (WITH_APPS)

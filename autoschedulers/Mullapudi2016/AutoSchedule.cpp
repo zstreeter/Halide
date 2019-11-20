@@ -1,19 +1,8 @@
+#include "AutoSchedule.h"
+#include "Halide.h"
+
 #include <algorithm>
 #include <regex>
-
-#include "AutoSchedule.h"
-#include "AutoScheduleUtils.h"
-#include "ExprUsesVar.h"
-#include "FindCalls.h"
-#include "Func.h"
-#include "IREquality.h"
-#include "Inline.h"
-#include "ParallelRVar.h"
-#include "RealizationOrder.h"
-#include "RegionCosts.h"
-#include "Scope.h"
-#include "Simplify.h"
-#include "Util.h"
 
 namespace Halide {
 namespace Internal {
@@ -3370,6 +3359,40 @@ string generate_schedules(const vector<Function> &outputs, const Target &target,
     return sched_string;
 }
 
+/* static */
+void auto_schedule_Mullapudi2016(Pipeline pipeline, const Target &target, const MachineParams &arch_params,
+                                 AutoSchedulerResults *outputs)
+{
+    AutoSchedulerResults results;
+    results.target = target;
+    results.machine_params_string = arch_params.to_string();
+
+    user_assert(target.arch == Target::X86 || target.arch == Target::ARM ||
+                target.arch == Target::POWERPC || target.arch == Target::MIPS)
+            << "The Mullapudi2016 autoscheduler is currently supported only on these architectures."
+            << (int) target.arch;
+    results.scheduler_name = "Mullapudi2016";
+    std::vector<Function> outfns;
+    for (Func f : pipeline.outputs()) {
+        outfns.push_back(f.function());
+    }
+    results.schedule_source = generate_schedules(outfns, target, arch_params);
+    // this autoscheduler has no featurization
+
+    *outputs = results;
+}
+
+// Halide uses a plugin architecture for registering custom
+// autoschedulers. We register our autoscheduler using a static
+// constructor.
+struct RegisterAutoScheduler {
+    RegisterAutoScheduler() {
+        debug(1) << "Registering autoscheduler 'Mullapudi2016'...\n";
+        Pipeline::add_autoscheduler("Mullapudi2016", AutoSchedulerFn(auto_schedule_Mullapudi2016));
+    }
+} register_auto_scheduler;
+
 }  // namespace Internal
 
 }  // namespace Halide
+

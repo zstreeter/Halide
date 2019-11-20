@@ -46,7 +46,7 @@ $(AUTOSCHED_BIN)/cost_model/%.a: $(AUTOSCHED_BIN)/cost_model.generator
 # It's important to use dynamic lookups for undefined symbols here: all of libHalide
 # is expected to be present (in the loading binary), so we explicitly make the symbols
 # undefined rather than dependent on libHalide.so.
-$(AUTOSCHED_BIN)/libauto_schedule.so: $(AUTOSCHED_SRC)/AutoSchedule.cpp \
+$(AUTOSCHED_BIN)/libhalide_scheduler_Adams2019.so: $(AUTOSCHED_SRC)/AutoSchedule.cpp \
 			  							$(AUTOSCHED_SRC)/ASLog.cpp \
 										$(AUTOSCHED_SRC)/DefaultCostModel.h \
 										$(AUTOSCHED_SRC)/DefaultCostModel.cpp \

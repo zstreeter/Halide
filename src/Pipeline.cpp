@@ -1,7 +1,6 @@
 #include <algorithm>
 
 #include "Argument.h"
-#include "AutoSchedule.h"
 #include "FindCalls.h"
 #include "Func.h"
 #include "IRVisitor.h"
@@ -168,28 +167,10 @@ vector<Func> Pipeline::outputs() const {
     return funcs;
 }
 
-/* static */
-void Pipeline::auto_schedule_Mullapudi2016(Pipeline pipeline, const Target &target,
-                                           const MachineParams &arch_params, AutoSchedulerResults *outputs) {
-    AutoSchedulerResults results;
-    results.target = target;
-    results.machine_params_string = arch_params.to_string();
-
-    user_assert(target.arch == Target::X86 || target.arch == Target::ARM ||
-                target.arch == Target::POWERPC || target.arch == Target::MIPS)
-        << "The Mullapudi2016 autoscheduler is currently supported only on these architectures." << (int)target.arch;
-    results.scheduler_name = "Mullapudi2016";
-    results.schedule_source = generate_schedules(pipeline.contents->outputs, target, arch_params);
-    // this autoscheduler has no featurization
-
-    *outputs = results;
-}
 
 /* static */
 std::map<std::string, AutoSchedulerFn> &Pipeline::get_autoscheduler_map() {
-    static std::map<std::string, AutoSchedulerFn> autoschedulers = {
-        { "Mullapudi2016", auto_schedule_Mullapudi2016 }
-    };
+    static std::map<std::string, AutoSchedulerFn> autoschedulers = {};
     return autoschedulers;
 }
 
@@ -202,6 +183,9 @@ std::string &Pipeline::get_default_autoscheduler_name() {
 /* static */
 AutoSchedulerFn Pipeline::find_autoscheduler(const std::string &autoscheduler_name) {
     const auto &m = get_autoscheduler_map();
+    if (m.empty()) {
+        load_plugin("halide_scheduler_Mullapudi2016");
+    }
     auto it = m.find(autoscheduler_name);
     if (it == m.end()) {
         std::ostringstream o;
