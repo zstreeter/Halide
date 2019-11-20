@@ -5,10 +5,10 @@ target_link_libraries(halide_scheduler_Mullapudi2016 PRIVATE autoschedulers_comm
 #     target_link_libraries(halide_scheduler_Li2018 PRIVATE Halide)
 # endif ()
 
-if (NOT MSVC)
-    set_target_properties(halide_scheduler_Mullapudi2016 PROPERTIES LINK_FLAGS "-rdynamic")
-elseif (APPLE)
+if (APPLE)
     set_target_properties(halide_scheduler_Mullapudi2016 PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
+elseif (NOT MSVC)
+    set_target_properties(halide_scheduler_Mullapudi2016 PROPERTIES LINK_FLAGS "-rdynamic")
 endif ()
 
 if (NOT HALIDE_ENABLE_RTTI)

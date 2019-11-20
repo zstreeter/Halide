@@ -57,12 +57,11 @@ target_link_libraries(halide_scheduler_Adams2019 PRIVATE cost_model train_cost_m
 #   target_link_libraries(halide_scheduler_Adams2019 PRIVATE Halide)
 # endif()
 
-if(NOT MSVC)
-  set_target_properties(halide_scheduler_Adams2019 PROPERTIES LINK_FLAGS "-rdynamic")
-elseif(APPLE)
-  set_target_properties(halide_scheduler_Adams2019
-                        PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
-endif()
+if (APPLE)
+    set_target_properties(halide_scheduler_Adams2019 PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
+elseif (NOT MSVC)
+    set_target_properties(halide_scheduler_Adams2019 PROPERTIES LINK_FLAGS "-rdynamic")
+endif ()
 
 if(NOT HALIDE_ENABLE_RTTI)
   if(NOT MSVC)
