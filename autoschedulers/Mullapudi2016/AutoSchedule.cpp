@@ -15,7 +15,7 @@ using std::string;
 using std::vector;
 
 namespace {
-  
+
 // Substitute parameter estimates into the exprs describing the box bounds.
 void substitute_estimates_box(Box &box) {
     box.used = substitute_var_estimates(box.used);
