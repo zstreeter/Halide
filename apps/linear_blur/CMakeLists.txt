@@ -15,7 +15,10 @@ halide_library(simple_blur
 
 halide_library(linear_blur 
                SRCS linear_blur_generator.cpp
-               GENERATOR_ARGS auto_schedule=true
+               GENERATOR_ARGS 
+                   auto_schedule=true 
+                   -p $<TARGET_FILE:halide_scheduler_Mullapudi2016>
+                   -s Mullapudi2016
                GENERATOR_DEPS srgb_to_linear.generator
                               linear_to_srgb.generator
                               simple_blur.generator

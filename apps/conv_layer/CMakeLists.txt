@@ -10,6 +10,11 @@ foreach(AUTO_SCHEDULE false true)
     endif()
     halide_library_from_generator(${LIB}
                                   GENERATOR conv_layer.generator
-                                  GENERATOR_ARGS auto_schedule=${AUTO_SCHEDULE})
+                                  GENERATOR_ARGS 
+                                  GENERATOR_ARGS 
+                                      auto_schedule=${AUTO_SCHEDULE} 
+                                      -p $<TARGET_FILE:halide_scheduler_Mullapudi2016>
+                                      -s Mullapudi2016
+                                  )
     target_link_libraries(conv_layer_process PRIVATE ${LIB})
 endforeach()

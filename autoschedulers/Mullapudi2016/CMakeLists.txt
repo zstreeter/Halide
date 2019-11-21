@@ -1,9 +1,6 @@
 # libhalide_scheduler_Mullapudi2016
 add_library(halide_scheduler_Mullapudi2016 SHARED AutoSchedule.cpp)
 target_link_libraries(halide_scheduler_Mullapudi2016 PRIVATE autoschedulers_common)
-# if (HALIDE_LIBRARY_TYPE STREQUAL SHARED)
-#     target_link_libraries(halide_scheduler_Li2018 PRIVATE Halide)
-# endif ()
 
 if (APPLE)
     set_target_properties(halide_scheduler_Mullapudi2016 PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")

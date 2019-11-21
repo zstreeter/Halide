@@ -10,8 +10,10 @@ foreach(AUTO_SCHEDULE false true)
     endif()
     halide_library_from_generator(${LIB}
                                   GENERATOR bilateral_grid.generator
-                                  GENERATOR_ARGS auto_schedule=${AUTO_SCHEDULE}
+                                  GENERATOR_ARGS 
+                                      auto_schedule=${AUTO_SCHEDULE} 
+                                      -p $<TARGET_FILE:halide_scheduler_Mullapudi2016>
+                                      -s Mullapudi2016
                                   EXTRA_OUTPUTS stmt schedule)
     target_link_libraries(bilateral_grid_process PRIVATE ${LIB})
-    add_dependencies(${LIB} halide_scheduler_Mullapudi2016)
 endforeach()
