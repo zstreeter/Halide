@@ -1,7 +1,7 @@
 import halide as hl
 
 def main():
-    hl.load_plugin("gradient_autoscheduler")
+    hl.load_plugin("halide_scheduler_Li2018")
 
     x = hl.Var('x')
     f_in = hl.Func('in')
