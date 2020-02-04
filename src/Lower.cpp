@@ -184,6 +184,18 @@ Module lower(const vector<Function> &output_funcs,
     debug(2) << "Lowering after allocation bounds inference:\n"
              << s << '\n';
 
+    bool will_inject_host_copies =
+        (t.has_gpu_feature() ||
+         t.has_feature(Target::OpenGLCompute) ||
+         t.has_feature(Target::OpenGL) ||
+         t.has_feature(Target::HexagonDma) ||
+         (t.arch != Target::Hexagon && (t.features_any_of({Target::HVX_64, Target::HVX_128}))));
+
+    debug(1) << "Adding checks for images\n";
+    s = add_image_checks(s, outputs, t, order, env, func_bounds, will_inject_host_copies);
+    debug(2) << "Lowering after injecting image checks:\n"
+             << s << '\n';
+
     debug(1) << "Removing code that depends on undef values...\n";
     s = remove_undef(s);
     debug(2) << "Lowering after removing code that depends on undef values:\n"
@@ -201,18 +213,6 @@ Module lower(const vector<Function> &output_funcs,
     s = simplify(s, false);  // Storage folding needs .loop_max symbols
     debug(2) << "Lowering after first simplification:\n"
              << s << "\n\n";
-
-    bool will_inject_host_copies =
-        (t.has_gpu_feature() ||
-         t.has_feature(Target::OpenGLCompute) ||
-         t.has_feature(Target::OpenGL) ||
-         t.has_feature(Target::HexagonDma) ||
-         (t.arch != Target::Hexagon && (t.features_any_of({Target::HVX_64, Target::HVX_128}))));
-
-    debug(1) << "Adding checks for images\n";
-    s = add_image_checks(s, outputs, t, order, env, func_bounds, will_inject_host_copies);
-    debug(2) << "Lowering after injecting image checks:\n"
-             << s << '\n';
 
     debug(1) << "Performing storage folding optimization...\n";
     s = storage_folding(s, env);
