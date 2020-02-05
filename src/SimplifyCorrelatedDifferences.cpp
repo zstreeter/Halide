@@ -2,6 +2,7 @@
 
 #include "CSE.h"
 #include "ExprUsesVar.h"
+#include "IRMatch.h"
 #include "IRMutator.h"
 #include "IROperator.h"
 #include "Monotonic.h"
@@ -110,6 +111,36 @@ class SimplifyCorrelatedDifferences : public IRMutator {
         return s;
     }
 
+    class PartiallyCancelQuasiAffineDifferences : public IRMutator {
+        using IRMutator::visit;
+
+        // Symbols used by rewrite rules
+        IRMatcher::Wild<0> x;
+        IRMatcher::Wild<1> y;
+        IRMatcher::Wild<2> z;
+        IRMatcher::WildConst<0> c0;
+
+        Expr visit(const Sub *op) override {
+
+            Expr a = mutate(op->a), b = mutate(op->b);
+
+            // Partially cancel terms in differences of correlated
+            // quasi-affine expressions to get tighter bounds. We
+            // assume any correlated term has already been pulled
+            // leftmost by solve_expression.
+            if (op->type == Int(32) && a.as<Div>() && b.as<Div>()) {
+                auto rewrite = IRMatcher::rewriter(IRMatcher::sub(a, b), op->type);
+                if (rewrite((x + y)/c0 - (x + z)/c0, ((x % c0) + y)/c0 - ((x % c0) + z)/c0) ||
+                    rewrite(x/c0 - (x + z)/c0, 0 - ((x % c0) + z)/c0) ||
+                    rewrite((x + y)/c0 - x/c0, ((x % c0) + y)/c0) ||
+                    false) {
+                    return rewrite.result;
+                }
+            }
+            return a - b;
+        }
+    };
+
     template<typename T>
     Expr visit_add_or_sub(const T *op) {
         if (op->type != Int(32)) {
@@ -131,6 +162,7 @@ class SimplifyCorrelatedDifferences : public IRMutator {
             }
             e = common_subexpression_elimination(e);
             e = solve_expression(e, loop_var).result;
+            e = PartiallyCancelQuasiAffineDifferences().mutate(e);
             e = simplify(e);
 
             if ((debug::debug_level() > 0) &&
