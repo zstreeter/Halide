@@ -130,9 +130,9 @@ class SimplifyCorrelatedDifferences : public IRMutator {
             // leftmost by solve_expression.
             if (op->type == Int(32) && a.as<Div>() && b.as<Div>()) {
                 auto rewrite = IRMatcher::rewriter(IRMatcher::sub(a, b), op->type);
-                if (rewrite((x + y)/c0 - (x + z)/c0, ((x % c0) + y)/c0 - ((x % c0) + z)/c0) ||
-                    rewrite(x/c0 - (x + z)/c0, 0 - ((x % c0) + z)/c0) ||
-                    rewrite((x + y)/c0 - x/c0, ((x % c0) + y)/c0) ||
+                if (rewrite((x + y) / c0 - (x + z) / c0, ((x % c0) + y) / c0 - ((x % c0) + z) / c0) ||
+                    rewrite(x / c0 - (x + z) / c0, 0 - ((x % c0) + z) / c0) ||
+                    rewrite((x + y) / c0 - x / c0, ((x % c0) + y) / c0) ||
                     false) {
                     return rewrite.result;
                 }
