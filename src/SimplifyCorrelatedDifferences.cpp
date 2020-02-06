@@ -111,7 +111,7 @@ class SimplifyCorrelatedDifferences : public IRMutator {
         return s;
     }
 
-    class PartiallyCancelQuasiAffineDifferences : public IRMutator {
+    class PartiallyCancelDifferences : public IRMutator {
         using IRMutator::visit;
 
         // Symbols used by rewrite rules
@@ -119,20 +119,28 @@ class SimplifyCorrelatedDifferences : public IRMutator {
         IRMatcher::Wild<1> y;
         IRMatcher::Wild<2> z;
         IRMatcher::WildConst<0> c0;
+        IRMatcher::WildConst<1> c1;
 
         Expr visit(const Sub *op) override {
 
             Expr a = mutate(op->a), b = mutate(op->b);
 
-            // Partially cancel terms in differences of correlated
-            // quasi-affine expressions to get tighter bounds. We
-            // assume any correlated term has already been pulled
-            // leftmost by solve_expression.
-            if (op->type == Int(32) && a.as<Div>() && b.as<Div>()) {
+            // Partially cancel terms in correlated differences of
+            // various kinds to get tighter bounds.  We assume any
+            // correlated term has already been pulled leftmost by
+            // solve_expression.
+            if (op->type == Int(32)) {
                 auto rewrite = IRMatcher::rewriter(IRMatcher::sub(a, b), op->type);
-                if (rewrite((x + y) / c0 - (x + z) / c0, ((x % c0) + y) / c0 - ((x % c0) + z) / c0) ||
+                if (
+                    // Differences of quasi-affine functions
+                    rewrite((x + y) / c0 - (x + z) / c0, ((x % c0) + y) / c0 - ((x % c0) + z) / c0) ||
                     rewrite(x / c0 - (x + z) / c0, 0 - ((x % c0) + z) / c0) ||
                     rewrite((x + y) / c0 - x / c0, ((x % c0) + y) / c0) ||
+
+                    // truncated cones have a constant upper bound
+                    // that isn't apparent when expressed in the form
+                    // in the LHS below
+                    rewrite(min(x, c0) - max(x, c1), min(min(x - c1, c0 - x), fold(min(0, c0 - c1)))) ||
                     false) {
                     return rewrite.result;
                 }
@@ -162,7 +170,7 @@ class SimplifyCorrelatedDifferences : public IRMutator {
             }
             e = common_subexpression_elimination(e);
             e = solve_expression(e, loop_var).result;
-            e = PartiallyCancelQuasiAffineDifferences().mutate(e);
+            e = PartiallyCancelDifferences().mutate(e);
             e = simplify(e);
 
             if ((debug::debug_level() > 0) &&
@@ -183,10 +191,38 @@ class SimplifyCorrelatedDifferences : public IRMutator {
     }
 };
 
+// TODO: This already exists in StorageFolding.cpp. The only
+// difference with this version is that it permits repeated let names
+class SubstituteInConstants : public IRMutator {
+    Scope<Expr> scope;
+
+    using IRMutator::visit;
+
+    Stmt visit(const LetStmt *op) override {
+        Expr value = simplify(mutate(op->value));
+        ScopedBinding<Expr> bind(scope, op->name, value);
+        Stmt body = mutate(op->body);
+        return LetStmt::make(op->name, value, body);
+    }
+
+    Expr visit(const Variable *op) override {
+        if (scope.contains(op->name)) {
+            Expr value = scope.get(op->name);
+            if (is_const(value)) {
+                return value;
+            }
+        }
+        return op;
+    }
+};
+
 }  // namespace
 
-Stmt simplify_correlated_differences(const Stmt &s) {
-    return SimplifyCorrelatedDifferences().mutate(s);
+Stmt simplify_correlated_differences(const Stmt &stmt) {
+    Stmt s = stmt;
+    s = SubstituteInConstants().mutate(s);
+    s = SimplifyCorrelatedDifferences().mutate(s);
+    return s;
 }
 
 }  // namespace Internal
