@@ -1135,6 +1135,20 @@ Expr unsafe_promise_clamped(Expr value, Expr min, Expr max) {
                                 Internal::Call::Intrinsic);
 }
 
+namespace Internal {
+Expr promise_clamped(Expr value, Expr min, Expr max) {
+    user_assert(value.defined()) << "promise_clamped with undefined value.\n";
+    Expr n_min_val = min.defined() ? lossless_cast(value.type(), min) : value.type().min();
+    Expr n_max_val = max.defined() ? lossless_cast(value.type(), max) : value.type().max();
+
+    // Min and max are allowed to be undefined with the meaning of no bound on that side.
+    return Internal::Call::make(value.type(),
+                                Internal::Call::promise_clamped,
+                                {value, n_min_val, n_max_val},
+                                Internal::Call::Intrinsic);
+}
+}  // namespace Internal
+
 Expr operator+(Expr a, Expr b) {
     user_assert(a.defined() && b.defined()) << "operator+ of undefined Expr\n";
     Internal::match_types(a, b);

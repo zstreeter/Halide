@@ -1029,7 +1029,8 @@ private:
                     bounds_of_type(t);
                 }
             }
-        } else if (op->is_intrinsic(Call::unsafe_promise_clamped)) {
+        } else if (op->is_intrinsic(Call::unsafe_promise_clamped) ||
+                   op->is_intrinsic(Call::promise_clamped)) {
             Expr full_clamp = clamp(op->args[0], op->args[1], op->args[2]);
             full_clamp.accept(this);
         } else if (op->is_intrinsic(Call::likely) ||
