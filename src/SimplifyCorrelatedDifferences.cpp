@@ -82,10 +82,16 @@ class SimplifyCorrelatedDifferences : public IRMutator {
     }
 
     Expr visit(const Let *op) override {
+        if (loop_var.empty()) {
+            return IRMutator::visit(op);
+        }
         return visit_let<Let, Expr>(op);
     }
 
     Stmt visit(const LetStmt *op) override {
+        if (loop_var.empty()) {
+            return IRMutator::visit(op);
+        }
         return visit_let<LetStmt, Stmt>(op);
     }
 
