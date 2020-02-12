@@ -132,8 +132,11 @@ class TrimStmtToPartsThatAccessBuffers : public IRMutator {
         touches_buffer = old_touches_buffer;
         return Block::make(first, rest);
     }
+
 public:
-    TrimStmtToPartsThatAccessBuffers(const map<string, FindBuffers::Result> &bufs) : buffers(bufs) {}
+    TrimStmtToPartsThatAccessBuffers(const map<string, FindBuffers::Result> &bufs)
+        : buffers(bufs) {
+    }
 };
 
 Stmt add_image_checks_inner(Stmt s,
