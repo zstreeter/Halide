@@ -137,10 +137,13 @@ class SimplifyCorrelatedDifferences : public IRMutator {
                     rewrite(x / c0 - (x + z) / c0, 0 - ((x % c0) + z) / c0) ||
                     rewrite((x + y) / c0 - x / c0, ((x % c0) + y) / c0) ||
 
-                    // truncated cones have a constant upper bound
-                    // that isn't apparent when expressed in the form
-                    // in the LHS below
-                    rewrite(min(x, c0) - max(x, c1), min(min(x - c1, c0 - x), fold(min(0, c0 - c1)))) ||
+                    // truncated cones have a constant upper or lower
+                    // bound that isn't apparent when expressed in the
+                    // form in the LHS below
+                    rewrite(min(x, c0) - max(x, c1), min(min(x - c0, c1 - x), fold(min(0, c0 - c1)))) ||
+                    rewrite(max(x, c0) - min(x, c1), max(max(c0 - x, x - c1), fold(max(0, c0 - c1)))) ||
+                    rewrite(min(x, y) - max(x, z), min(min(x, y) - max(x, z), 0)) ||
+                    rewrite(max(x, y) - min(x, z), max(max(x, y) - min(x, z), 0)) ||
                     false) {
                     return rewrite.result;
                 }
