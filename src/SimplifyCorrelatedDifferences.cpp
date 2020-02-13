@@ -44,27 +44,36 @@ class SimplifyCorrelatedDifferences : public IRMutator {
                 : op(op),
                   binding(scope, op->name, is_monotonic(op->value, loop_var, scope)) {
             }
+            Frame(const LetStmtOrLet *op)
+                : op(op) {
+            }
         };
         std::vector<Frame> frames;
         StmtOrExpr result;
 
-        // Note that we must add *everything* to the monotonic scope
-        // and the list of lets, even things which we can never
-        // substitute in (e.g. impure things). This is for two
-        // reasons. First this pass is used at a time when we still
-        // have nested lets under the same name. If we decide not to
-        // add an inner let, but do add the outer one, then later
-        // references to it will be incorrect. Second, if we don't add
-        // something that happens to be non-monotonic, then
-        // is_monotonic finds a variable that references it in a later
-        // let, it will think it's a constant, not an unknown.
+        // Note that we must add *everything* that depends on the loop
+        // var to the monotonic scope and the list of lets, even
+        // things which we can never substitute in (e.g. impure
+        // things). This is for two reasons. First this pass is used
+        // at a time when we still have nested lets under the same
+        // name. If we decide not to add an inner let, but do add the
+        // outer one, then later references to it will be
+        // incorrect. Second, if we don't add something that happens
+        // to be non-monotonic, then is_monotonic finds a variable
+        // that references it in a later let, it will think it's a
+        // constant, not an unknown.
         do {
             result = op->body;
-            frames.emplace_back(op, loop_var, monotonic);
-            Expr new_value = mutate(op->value);
-            bool may_substitute_in = new_value.type() == Int(32) && is_pure(new_value);
-            lets.emplace_back(OuterLet{op->name, new_value, may_substitute_in});
-            frames.back().new_value = std::move(new_value);
+            bool pure = is_pure(op->value);
+            if (!pure || expr_uses_vars(op->value, monotonic)) {
+                frames.emplace_back(op, loop_var, monotonic);
+                Expr new_value = mutate(op->value);
+                bool may_substitute_in = new_value.type() == Int(32) && pure;
+                lets.emplace_back(OuterLet{op->name, new_value, may_substitute_in});
+                frames.back().new_value = std::move(new_value);
+            } else {
+                frames.emplace_back(op);
+            }
         } while ((op = result.template as<LetStmtOrLet>()));
 
         result = mutate(result);
@@ -75,7 +84,9 @@ class SimplifyCorrelatedDifferences : public IRMutator {
             } else {
                 result = LetStmtOrLet::make(it->op->name, it->op->value, result);
             }
-            lets.pop_back();
+            if (it->binding.bound()) {
+                lets.pop_back();
+            }
         }
 
         return result;
