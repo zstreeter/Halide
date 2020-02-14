@@ -6,9 +6,9 @@ add_library(Halide_expect_abort OBJECT common/expect_abort.cpp)
 # Capture common halide test features in a single target.
 add_library(halide_test INTERFACE)
 target_include_directories(halide_test INTERFACE
-        "${HALIDE_INCLUDE_DIR}"
-        "${Halide_SOURCE_DIR}" # TODO: break this dependency.
-        common)
+                           "${HALIDE_INCLUDE_DIR}"
+                           "${Halide_SOURCE_DIR}" # TODO: break this dependency.
+                           common)
 target_compile_definitions(halide_test INTERFACE "LLVM_VERSION=${LLVM_VERSION}")
 
 # Tests are built with the equivalent of OPTIMIZE_FOR_BUILD_TIME (-O0 or /Od).
