@@ -421,7 +421,6 @@ LIB_DIR     = lib
 BIN_DIR     = bin
 DISTRIB_DIR = distrib
 INCLUDE_DIR = include
-DOC_DIR     = doc
 BUILD_DIR   = $(BIN_DIR)/build
 FILTERS_DIR = $(BIN_DIR)/$(TARGET)/build
 TMP_DIR     = $(BUILD_DIR)/tmp
@@ -1105,7 +1104,6 @@ clean:
 	rm -rf $(TMP_DIR)
 	rm -rf $(FILTERS_DIR)
 	rm -rf $(INCLUDE_DIR)
-	rm -rf $(DOC_DIR)
 	rm -rf $(DISTRIB_DIR)
 	rm -rf $(ROOT_DIR)/apps/*/bin
 
@@ -2163,17 +2161,6 @@ $(BUILD_DIR)/rtti_ok:
 	@echo "LLVM c++ flags: " $(LLVM_CXX_FLAGS)
 	@exit 1
 endif
-
-.PHONY: doc
-$(DOC_DIR): doc
-doc: $(SRC_DIR) Doxyfile
-	doxygen
-
-Doxyfile: Doxyfile.in
-	@echo "Generating $@"
-	@sed -e "s#@CMAKE_BINARY_DIR@#$(shell pwd)#g" \
-	     -e "s#@CMAKE_SOURCE_DIR@#$(shell pwd)#g" \
-	    $< > $@
 
 install: $(LIB_DIR)/libHalide.a $(BIN_DIR)/libHalide.$(SHARED_EXT) $(INCLUDE_DIR)/Halide.h $(RUNTIME_EXPORTED_INCLUDES)
 	mkdir -p $(PREFIX)/include $(PREFIX)/bin $(PREFIX)/lib $(PREFIX)/share/halide/tutorial/images $(PREFIX)/share/halide/tools $(PREFIX)/share/halide/tutorial/figures
