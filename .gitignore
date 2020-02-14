@@ -11,7 +11,6 @@ build-osx/*
 cmake_build*/*
 */build/*
 tmp/*
-doc/*
 include/*
 distrib/*
 testing/*
