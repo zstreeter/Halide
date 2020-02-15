@@ -10,4 +10,5 @@ endif ()
 set(THREADS_PREFER_PTHREAD_FLAG YES)
 find_package(Threads QUIET)
 
+add_subdirectory(clang)
 add_subdirectory(llvm)
