@@ -20,23 +20,8 @@ if ("${HALIDE_REQUIRE_LLVM_VERSION}" STREQUAL "")
     # Find any version present.
     find_package(LLVM REQUIRED CONFIG)
 else ()
-    # Find a specific version.
-    string(REGEX REPLACE
-           "^([0-9]+)([0-9])$"
-           "\\1"
-           MAJOR
-           "${HALIDE_REQUIRE_LLVM_VERSION}")
-    string(REGEX REPLACE
-           "^([0-9]+)([0-9])$"
-           "\\2"
-           MINOR
-           "${HALIDE_REQUIRE_LLVM_VERSION}")
-    message("HALIDE_REQUIRE_LLVM_VERSION ${HALIDE_REQUIRE_LLVM_VERSION}")
-    message("Looking for LLVM version ${MAJOR}.${MINOR}")
-    find_package(LLVM "${MAJOR}.${MINOR}" REQUIRED CONFIG)
-    if (NOT "${LLVM_VERSION_MAJOR}${LLVM_VERSION_MINOR}" STREQUAL "${MAJOR}${MINOR}")
-        message(FATAL_ERROR "LLVM version error: required ${MAJOR}${MINOR} but found ${LLVM_VERSION_MAJOR}${LLVM_VERSION_MINOR}")
-    endif ()
+    message(STATUS "Looking for LLVM version ${HALIDE_REQUIRE_LLVM_VERSION}")
+    find_package(LLVM "${HALIDE_REQUIRE_LLVM_VERSION}" REQUIRED CONFIG)
 endif ()
 
 # Notify the user what paths and LLVM version we are using
