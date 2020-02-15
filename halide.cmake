@@ -12,6 +12,9 @@ include(CMakeParseArguments)
 # of HALIDE_TOOLS_DIR, HALIDE_INCLUDE_DIR, and HALIDE_COMPILER_LIB.
 #
 
+set(THREADS_PREFER_PTHREAD_FLAG YES)
+find_package(Threads QUIET)
+
 # Add the include paths and link dependencies for halide_image_io.
 add_library(halide_image_io INTERFACE)
 foreach(LIB IN ITEMS PNG JPEG)
@@ -52,7 +55,7 @@ function(halide_generator NAME)
   add_executable("${NAME}_binary" "${HALIDE_TOOLS_DIR}/GenGen.cpp")
   _halide_set_cxx_options("${NAME}_binary")
   target_include_directories("${NAME}_binary" PRIVATE "${HALIDE_INCLUDE_DIR}" "${HALIDE_TOOLS_DIR}")
-  target_link_libraries("${NAME}_binary" PRIVATE ${HALIDE_SYSTEM_LIBS} ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT})
+  target_link_libraries("${NAME}_binary" PRIVATE ${HALIDE_SYSTEM_LIBS} ${CMAKE_DL_LIBS} Threads::Threads)
   if (MSVC)
     target_link_libraries("${NAME}_binary" PRIVATE Kernel32)
   endif()
@@ -245,7 +248,8 @@ function(halide_library_from_generator BASENAME)
   set_target_properties("${BASENAME}" PROPERTIES
     IMPORTED_LOCATION "${GENFILES_DIR}/${BASENAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
     INTERFACE_INCLUDE_DIRECTORIES "${GENFILES_DIR}" ${args_INCLUDES}
-    INTERFACE_LINK_LIBRARIES "${RUNTIME_NAME};${args_FILTER_DEPS};${CMAKE_DL_LIBS};${CMAKE_THREAD_LIBS_INIT}")
+    INTERFACE_LINK_LIBRARIES "${RUNTIME_NAME};${args_FILTER_DEPS};${CMAKE_DL_LIBS}")
+  target_link_libraries("${BASENAME}" INTERFACE Threads::Threads)
 
   # A separate invocation for the generated .cpp file,
   # since it's rarely used, and some code will fail at Generation

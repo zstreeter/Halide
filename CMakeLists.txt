@@ -14,15 +14,7 @@ endif ()
 set(CPACK_PACKAGE_FILE_NAME "Halide" CACHE STRING "Name of package created by distrib target")
 include(CPack)
 
-# This only affects OSX system, and changes how find_xxx() commands work; the default
-# is to find frameworks before standard libraries or headers, but this can be a problem
-# on systems that have Mono installed, as it has a framework with the libjpeg and libpng
-# headers present -- so CMake finds the headers from Mono but the libraries from Homebrew,
-# and hilarity ensues. Setting this to "last" means we always try the standard libraries
-# before the frameworks.
-set(CMAKE_FIND_FRAMEWORK LAST)
-
-find_package(Threads QUIET)
+add_subdirectory(dependencies)
 
 if ("${HALIDE_REQUIRE_LLVM_VERSION}" STREQUAL "")
     # Find any version present.
@@ -244,7 +236,7 @@ function(halide_project name folder)
             target_compile_options("${name}" PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>)
         endif ()
     endif ()
-    target_link_libraries("${name}" PRIVATE ${HALIDE_COMPILER_LIB} ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT})
+    target_link_libraries("${name}" PRIVATE ${HALIDE_COMPILER_LIB} ${CMAKE_DL_LIBS} Threads::Threads)
     target_include_directories("${name}" PRIVATE "${Halide_SOURCE_DIR}/src")
     target_include_directories("${name}" PRIVATE "${Halide_SOURCE_DIR}/tools")
     set_target_properties("${name}" PROPERTIES
