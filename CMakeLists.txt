@@ -64,8 +64,6 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
     message("Windows: setting CMAKE_OBJECT_PATH_MAX to ${CMAKE_OBJECT_PATH_MAX}")
 endif ()
 
-set(CMAKE_MACOSX_RPATH ON)
-
 # Export all symbols
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
