@@ -175,7 +175,7 @@ function(add_runtime_modules TARGET_RUNTIME_FILES TARGET_RUNTIME_DIR)
                                # COMMENT "${SOURCE} -> ${LL_D}"
                                DEPENDS "${SOURCE}"
                                VERBATIM
-                               COMMAND ${CLANG} ${CXX_WARNING_FLAGS} ${RUNTIME_DEBUG_FLAG} -DDEBUG_RUNTIME ${RUNTIME_CXX_FLAGS} -m${j} -target ${TARGET} -I${TARGET_RUNTIME_DIR} -DCOMPILING_HALIDE_RUNTIME -DLLVM_VERSION=${LLVM_VERSION} -DBITS_${j} -emit-llvm -S ${SOURCE} -o ${LL_D}
+                               COMMAND clang ${CXX_WARNING_FLAGS} ${RUNTIME_DEBUG_FLAG} -DDEBUG_RUNTIME ${RUNTIME_CXX_FLAGS} -m${j} -target ${TARGET} -I${TARGET_RUNTIME_DIR} -DCOMPILING_HALIDE_RUNTIME -DLLVM_VERSION=${LLVM_VERSION} -DBITS_${j} -emit-llvm -S ${SOURCE} -o ${LL_D}
                                # Make sure that the output of this command also depends
                                # on the header files that ${SOURCE} uses
                                # FIXME: Only works for makefile generator
@@ -185,18 +185,18 @@ function(add_runtime_modules TARGET_RUNTIME_FILES TARGET_RUNTIME_DIR)
                                # COMMENT "${SOURCE} -> ${LL}"
                                DEPENDS "${SOURCE}"
                                VERBATIM
-                               COMMAND ${CLANG} ${CXX_WARNING_FLAGS} ${RUNTIME_CXX_FLAGS} -m${j} -target ${TARGET} -I${TARGET_RUNTIME_DIR} -DCOMPILING_HALIDE_RUNTIME -DLLVM_VERSION=${LLVM_VERSION} -DBITS_${j} -emit-llvm -S ${SOURCE} -o ${LL}
+                               COMMAND clang ${CXX_WARNING_FLAGS} ${RUNTIME_CXX_FLAGS} -m${j} -target ${TARGET} -I${TARGET_RUNTIME_DIR} -DCOMPILING_HALIDE_RUNTIME -DLLVM_VERSION=${LLVM_VERSION} -DBITS_${j} -emit-llvm -S ${SOURCE} -o ${LL}
                                )
 
             add_custom_command(OUTPUT "${BC_D}"
                                # COMMENT "${LL_D} -> ${BC_D}"
                                DEPENDS "${LL_D}"
-                               COMMAND "${LLVM_AS}" "${LL_D}" -o "${BC_D}"
+                               COMMAND llvm-as "${LL_D}" -o "${BC_D}"
                                )
             add_custom_command(OUTPUT "${BC}"
                                # COMMENT "${LL} -> ${BC}"
                                DEPENDS "${LL}"
-                               COMMAND "${LLVM_AS}" "${LL}" -o "${BC}"
+                               COMMAND llvm-as "${LL}" -o "${BC}"
                                )
 
             add_custom_command(OUTPUT "${INITMOD_D}"
@@ -213,8 +213,7 @@ function(add_runtime_modules TARGET_RUNTIME_FILES TARGET_RUNTIME_DIR)
             list(APPEND INITIAL_MODULES ${INITMOD_D})
         endforeach ()
     endforeach ()
-    # This seems to be how you return values from functions in cmake.
-    # I just threw up in my mouth a little.
+
     set(INITIAL_MODULES "${INITIAL_MODULES}" PARENT_SCOPE)
 endfunction(add_runtime_modules)
 
@@ -227,7 +226,7 @@ foreach (i ${RUNTIME_LL})
     add_custom_command(OUTPUT "${BC}"
                        # COMMENT "${LL} -> ${BC}"
                        DEPENDS "${LL}"
-                       COMMAND "${LLVM_AS}" "${LL}" -o "${BC}"
+                       COMMAND llvm-as "${LL}" -o "${BC}"
                        )
     add_custom_command(OUTPUT "${INITMOD}"
                        # COMMENT "${BC} -> ${INITMOD}"
@@ -641,70 +640,10 @@ target_compile_options(Halide PUBLIC $<$<CXX_COMPILER_ID:MSVC>:/MP>)
 target_compile_definitions(Halide PRIVATE "-DHalide_${HALIDE_LIBRARY_TYPE}")
 add_dependencies(Halide HalideIncludes)
 
-# List of LLVM Components required
-# This list will be appended to depending on the targets we need to support
-# See the output of ``llvm-config --components`` for a list of possible components
-set(LLVM_COMPONENTS mcjit;bitwriter;linker)
-list(APPEND LLVM_COMPONENTS passes)
-
-# Set definitions and compiler flags
-
-# Note when PUBLIC or INTERFACE scope is used in target_compile_* then targets
-# that link against the Halide library inherit those options and definitions
-target_include_directories(Halide PRIVATE ${LLVM_INCLUDE_DIRS})
+# TODO: don't depend on headers in binary directory!
 target_include_directories(Halide INTERFACE "${CMAKE_BINARY_DIR}/include")
 
-# TODO: For targets we can link against even fewer libraries by specifying
-# only the components we **REALLY** need (e.g. x86asmprinter;x86codegen rather than x86)
-if (TARGET_X86)
-    target_compile_definitions(Halide PRIVATE "-DWITH_X86")
-    list(APPEND LLVM_COMPONENTS X86)
-endif ()
-
-if (TARGET_ARM)
-    target_compile_definitions(Halide PRIVATE "-DWITH_ARM")
-    list(APPEND LLVM_COMPONENTS ARM)
-endif ()
-
-if (TARGET_AARCH64)
-    target_compile_definitions(Halide PRIVATE "-DWITH_AARCH64")
-    list(APPEND LLVM_COMPONENTS AArch64)
-endif ()
-
-if (TARGET_HEXAGON)
-    target_compile_definitions(Halide PRIVATE "-DWITH_HEXAGON")
-    list(APPEND LLVM_COMPONENTS Hexagon)
-endif ()
-
-if (TARGET_MIPS)
-    target_compile_definitions(Halide PRIVATE "-DWITH_MIPS")
-    list(APPEND LLVM_COMPONENTS Mips)
-endif ()
-
-if (TARGET_POWERPC)
-    target_compile_definitions(Halide PRIVATE "-DWITH_POWERPC")
-    list(APPEND LLVM_COMPONENTS PowerPC)
-endif ()
-
-if (TARGET_WEBASSEMBLY)
-    target_compile_definitions(Halide PRIVATE "-DWITH_WEBASSEMBLY")
-    list(APPEND LLVM_COMPONENTS WebAssembly)
-endif ()
-
-if (TARGET_PTX)
-    target_compile_definitions(Halide PRIVATE "-DWITH_PTX")
-    list(APPEND LLVM_COMPONENTS NVPTX)
-endif ()
-
-if (TARGET_AMDGPU)
-    target_compile_definitions(Halide PRIVATE "-DWITH_AMDGPU")
-    list(APPEND LLVM_COMPONENTS AMDGPU)
-endif ()
-
-if (TARGET_RISCV)
-    target_compile_definitions(Halide PRIVATE "-DWITH_RISCV")
-    list(APPEND LLVM_COMPONENTS RISCV)
-endif ()
+# Set definitions and compiler flags
 
 if (TARGET_OPENCL)
     target_compile_definitions(Halide PRIVATE "-DWITH_OPENCL")
@@ -722,9 +661,7 @@ if (TARGET_D3D12COMPUTE)
     target_compile_definitions(Halide PRIVATE "-DWITH_D3D12")
 endif ()
 
-target_compile_definitions(Halide PRIVATE "-DLLVM_VERSION=${LLVM_VERSION}")
 target_compile_definitions(Halide PRIVATE "-DCOMPILING_HALIDE")
-target_compile_definitions(Halide PRIVATE ${LLVM_DEFINITIONS})
 if (NOT LLVM_ENABLE_ASSERTIONS)
     target_compile_definitions(Halide PRIVATE NDEBUG)
 endif ()
@@ -750,36 +687,35 @@ if (MSVC)
     if (SUPPORTS_SIZED_DEALLOC)
         target_compile_options(Halide PRIVATE "/Zc:sizedDealloc-")
     endif ()
-else ()
-    if (NOT HALIDE_ENABLE_RTTI)
-        if (NOT MSVC)
-            target_compile_options(Halide PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>)
-        else ()
-            target_compile_options(Halide PUBLIC $<$<COMPILE_LANGUAGE:CXX>:/GR- >)
-        endif ()
-    endif ()
 endif ()
 
-# When building a shared library the LLVM libraries will either be
-# embedded or linked into the Halide library. When building a static library
-# LLVM is not embedded/linked but CMake knows that when building an executable
-# against Halide static library that it needs to link LLVM too, IFF the
-# halide is being built as a subproject. (Which means, statically-built Halide
-# doesn't work out-of-installation directory.)
-# FIXME: migrate to proper cmake config magic.
-if (LLVM_USE_SHARED_LLVM_LIBRARY)
-    set(LLVM_USE_SHARED "USE_SHARED")
+if (NOT HALIDE_ENABLE_RTTI)
+    target_compile_options(Halide PUBLIC
+                           $<$<COMPILE_LANG_AND_ID:CXX,MSVC>:/GR- >
+                           $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:-fno-rtti>)
 endif ()
-llvm_config(Halide ${LLVM_USE_SHARED} ${LLVM_COMPONENTS})
+
+target_link_libraries(Halide PRIVATE LLVM::LLVM LLVM::Config)
 
 if (NOT MSVC AND NOT LLVM_USE_SHARED_LLVM_LIBRARY)
     set(LLVM_CONFIG ${LLVM_TOOLS_BINARY_DIR}/llvm-config)
-    execute_process(COMMAND "${LLVM_CONFIG}" --system-libs ${LLVM_COMPONENTS} OUTPUT_VARIABLE EXTRA_LIBS)
+    execute_process(COMMAND llvm-config --system-libs ${LLVM_COMPONENTS} OUTPUT_VARIABLE EXTRA_LIBS)
     string(STRIP EXTRA_LIBS "${EXTRA_LIBS}")   # strip whitespace from start & end
     string(REPLACE "\n" "" EXTRA_LIBS "${EXTRA_LIBS}")
     string(REPLACE " " ";" EXTRA_LIBS "${EXTRA_LIBS}")  # convert into a list
     target_link_libraries(Halide PUBLIC ${EXTRA_LIBS})
 endif ()
+
+add_library(halide_image_io INTERFACE)
+foreach (LIB IN ITEMS PNG JPEG)
+    if (TARGET ${LIB}::${LIB})
+        target_link_libraries(halide_image_io INTERFACE ${LIB}::${LIB})
+    else ()
+        message(STATUS "${LIB} not found; compiling with -DHALIDE_NO_${LIB}")
+        target_compile_definitions(halide_image_io INTERFACE HALIDE_NO_${LIB})
+    endif ()
+endforeach ()
+add_library(Halide::ImageIO ALIAS halide_image_io)
 
 install(TARGETS Halide
         RUNTIME DESTINATION bin

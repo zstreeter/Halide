@@ -1,0 +1,169 @@
+##
+# Find LLVM and check the version.
+##
+
+if ("${HALIDE_REQUIRE_LLVM_VERSION}" STREQUAL "")
+    # Find any version present.
+    find_package(LLVM REQUIRED CONFIG)
+else ()
+    message(STATUS "Looking for LLVM version ${HALIDE_REQUIRE_LLVM_VERSION}")
+    find_package(LLVM "${HALIDE_REQUIRE_LLVM_VERSION}" REQUIRED CONFIG)
+endif ()
+
+message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
+message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
+
+if ("${LLVM_PACKAGE_VERSION}" VERSION_LESS 8.0)
+    message(FATAL_ERROR "LLVM version must be 8.0 or newer")
+endif ()
+
+if ("${LLVM_PACKAGE_VERSION}" VERSION_GREATER 11.0)
+    message(FATAL_ERROR "LLVM version must be 11.0 or older")
+endif ()
+
+##
+# Detect supported llvm targets
+##
+
+function(check_llvm_target TARGET HAS_TARGET)
+    if ("${TARGET}" IN_LIST LLVM_TARGETS_TO_BUILD)
+        set(${HAS_TARGET} ON PARENT_SCOPE)
+    else ()
+        set(${HAS_TARGET} OFF PARENT_SCOPE)
+    endif ()
+endfunction()
+
+check_llvm_target(X86 WITH_X86)
+check_llvm_target(ARM WITH_ARM)
+check_llvm_target(AArch64 WITH_AARCH64)
+check_llvm_target(Hexagon WITH_HEXAGON)
+check_llvm_target(Mips WITH_MIPS)
+check_llvm_target(PowerPC WITH_POWERPC)
+check_llvm_target(NVPTX WITH_NVPTX)
+check_llvm_target(RISCV WITH_RISCV)
+check_llvm_target(AMDGPU WITH_AMDGPU)  # AMDGPU target is WIP
+
+##
+# Create interface libraries for LLVM
+##
+
+add_library(llvm INTERFACE)
+target_include_directories(llvm INTERFACE ${LLVM_INCLUDE_DIRS})
+target_compile_definitions(llvm INTERFACE ${LLVM_DEFINITIONS})
+
+add_library(llvm_config INTERFACE)
+target_compile_definitions(llvm_config INTERFACE "LLVM_VERSION=${LLVM_VERSION_MAJOR}${LLVM_VERSION_MINOR}")
+
+##
+# Create options that are initialized based on LLVM's config
+##
+
+# See the output of ``llvm-config --components`` for a list of possible components
+set(LLVM_COMPONENTS mcjit;bitwriter;linker; passes)
+
+# TODO: For targets we can link against even fewer libraries by specifying only the components we REALLY need.
+# (e.g. x86asmprinter;x86codegen rather than x86)
+option(TARGET_X86 "Include x86 target" ${WITH_X86})
+if (TARGET_X86)
+    target_compile_definitions(llvm_config INTERFACE WITH_X86)
+    list(APPEND LLVM_COMPONENTS X86)
+endif ()
+
+option(TARGET_ARM "Include ARM target" ${WITH_ARM})
+if (TARGET_ARM)
+    target_compile_definitions(llvm_config INTERFACE WITH_ARM)
+    list(APPEND LLVM_COMPONENTS ARM)
+endif ()
+
+option(TARGET_AARCH64 "Include AARCH64 (arm64) target" ${WITH_AARCH64})
+if (TARGET_AARCH64)
+    target_compile_definitions(llvm_config INTERFACE WITH_AARCH64)
+    list(APPEND LLVM_COMPONENTS AArch64)
+endif ()
+
+option(TARGET_HEXAGON "Include Hexagon target" ${WITH_HEXAGON})
+if (TARGET_HEXAGON)
+    target_compile_definitions(llvm_config INTERFACE WITH_HEXAGON)
+    list(APPEND LLVM_COMPONENTS Hexagon)
+endif ()
+
+option(TARGET_MIPS "Include MIPS target" ${WITH_MIPS})
+if (TARGET_MIPS)
+    target_compile_definitions(llvm_config INTERFACE WITH_MIPS)
+    list(APPEND LLVM_COMPONENTS Mips)
+endif ()
+
+option(TARGET_POWERPC "Include POWERPC target" ${WITH_POWERPC})
+if (TARGET_POWERPC)
+    target_compile_definitions(llvm_config INTERFACE WITH_POWERPC)
+    list(APPEND LLVM_COMPONENTS PowerPC)
+endif ()
+
+if (TARGET_WEBASSEMBLY)
+    target_compile_definitions(llvm_config INTERFACE WITH_WEBASSEMBLY)
+    list(APPEND LLVM_COMPONENTS WebAssembly)
+endif ()
+
+option(TARGET_PTX "Include PTX target" ${WITH_NVPTX})
+if (TARGET_PTX)
+    target_compile_definitions(llvm_config INTERFACE WITH_PTX)
+    list(APPEND LLVM_COMPONENTS NVPTX)
+endif ()
+
+option(TARGET_AMDGPU "Include AMDGPU target" ${WITH_AMDGPU})
+if (TARGET_AMDGPU)
+    target_compile_definitions(llvm_config INTERFACE WITH_AMDGPU)
+    list(APPEND LLVM_COMPONENTS AMDGPU)
+endif ()
+
+option(TARGET_RISCV "Include RISCV target" ${WITH_RISCV})
+if (TARGET_RISCV)
+    target_compile_definitions(llvm_config INTERFACE WITH_RISCV)
+    list(APPEND LLVM_COMPONENTS RISCV)
+endif ()
+
+##
+# Finish setting up llvm library
+##
+
+# When building a shared library the LLVM libraries will either be
+# embedded or linked into the Halide library. When building a static library
+# LLVM is not embedded/linked but CMake knows that when building an executable
+# against Halide static library that it needs to link LLVM too, IFF the
+# halide is being built as a subproject. (Which means, statically-built Halide
+# doesn't work out-of-installation directory.)
+# FIXME: migrate to proper cmake config magic.
+if (LLVM_USE_SHARED_LLVM_LIBRARY)
+    set(LLVM_USE_SHARED "USE_SHARED")
+endif ()
+
+llvm_map_components_to_libnames(LLVM_COMPONENTS ${LLVM_COMPONENTS})
+target_link_libraries(llvm INTERFACE ${LLVM_COMPONENTS})
+
+if (NOT LLVM_ENABLE_ASSERTIONS)
+    target_compile_definitions(llvm INTERFACE NDEBUG)
+endif ()
+
+option(HALIDE_ENABLE_RTTI "Enable RTTI" ${LLVM_ENABLE_RTTI})
+option(HALIDE_ENABLE_EXCEPTIONS "Enable exceptions" ${LLVM_ENABLE_EH})
+
+if (HALIDE_ENABLE_RTTI AND NOT LLVM_ENABLE_RTTI)
+    message(FATAL_ERROR "Can't enable RTTI. LLVM was compiled without it")
+endif ()
+
+if (NOT LLVM_ENABLE_RTTI)
+    target_compile_options(llvm INTERFACE
+                           $<$<COMPILE_LANG_AND_ID:CXX,MSVC>:/GR- >
+                           $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:-fno-rtti>)
+endif ()
+
+##
+# Export aliases to global scope.
+##
+
+add_library(LLVM::LLVM ALIAS llvm)
+add_library(LLVM::Config ALIAS llvm_config)
+
+set_target_properties(llvm-as PROPERTIES IMPORTED_GLOBAL TRUE)
+set_target_properties(llvm-nm PROPERTIES IMPORTED_GLOBAL TRUE)
+set_target_properties(llvm-config PROPERTIES IMPORTED_GLOBAL TRUE)

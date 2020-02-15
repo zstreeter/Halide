@@ -14,42 +14,7 @@ endif ()
 set(CPACK_PACKAGE_FILE_NAME "Halide" CACHE STRING "Name of package created by distrib target")
 include(CPack)
 
-# This only affects OSX system, and changes how find_xxx() commands work; the default
-# is to find frameworks before standard libraries or headers, but this can be a problem
-# on systems that have Mono installed, as it has a framework with the libjpeg and libpng
-# headers present -- so CMake finds the headers from Mono but the libraries from Homebrew,
-# and hilarity ensues. Setting this to "last" means we always try the standard libraries
-# before the frameworks.
-set(CMAKE_FIND_FRAMEWORK LAST)
-
-find_package(Threads QUIET)
-
-if ("${HALIDE_REQUIRE_LLVM_VERSION}" STREQUAL "")
-    # Find any version present.
-    find_package(LLVM REQUIRED CONFIG)
-else ()
-    # Find a specific version.
-    string(REGEX REPLACE
-           "^([0-9]+)([0-9])$"
-           "\\1"
-           MAJOR
-           "${HALIDE_REQUIRE_LLVM_VERSION}")
-    string(REGEX REPLACE
-           "^([0-9]+)([0-9])$"
-           "\\2"
-           MINOR
-           "${HALIDE_REQUIRE_LLVM_VERSION}")
-    message("HALIDE_REQUIRE_LLVM_VERSION ${HALIDE_REQUIRE_LLVM_VERSION}")
-    message("Looking for LLVM version ${MAJOR}.${MINOR}")
-    find_package(LLVM "${MAJOR}.${MINOR}" REQUIRED CONFIG)
-    if (NOT "${LLVM_VERSION_MAJOR}${LLVM_VERSION_MINOR}" STREQUAL "${MAJOR}${MINOR}")
-        message(FATAL_ERROR "LLVM version error: required ${MAJOR}${MINOR} but found ${LLVM_VERSION_MAJOR}${LLVM_VERSION_MINOR}")
-    endif ()
-endif ()
-
-# Notify the user what paths and LLVM version we are using
-message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
-message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
+add_subdirectory(dependencies)
 
 if (MSVC AND NOT CMAKE_CONFIGURATION_TYPES)
     # LLVM5.x on Windows can include "$(Configuration)" in the path;
@@ -71,13 +36,6 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
-set(LLVM_VERSION "${LLVM_VERSION_MAJOR}${LLVM_VERSION_MINOR}")
-
-file(TO_NATIVE_PATH "${LLVM_TOOLS_BINARY_DIR}/llvm-as${CMAKE_EXECUTABLE_SUFFIX}" LLVM_AS)
-file(TO_NATIVE_PATH "${LLVM_TOOLS_BINARY_DIR}/llvm-nm${CMAKE_EXECUTABLE_SUFFIX}" LLVM_NM)
-file(TO_NATIVE_PATH "${LLVM_TOOLS_BINARY_DIR}/clang${CMAKE_EXECUTABLE_SUFFIX}" CLANG)
-file(TO_NATIVE_PATH "${LLVM_TOOLS_BINARY_DIR}/llvm-config${CMAKE_EXECUTABLE_SUFFIX}" LLVM_CONFIG)
-
 if (LLVM_USE_SHARED_LLVM_LIBRARY)
     # Since we will be linking to the shared LLVM library,
     # we will get all the transitive dependencies for free automagically.
@@ -85,7 +43,7 @@ if (LLVM_USE_SHARED_LLVM_LIBRARY)
 else ()
     # LLVM doesn't appear to expose --system-libs via its CMake interface,
     # so we must shell out to llvm-config to find this info
-    execute_process(COMMAND ${LLVM_CONFIG} --system-libs --link-static OUTPUT_VARIABLE HALIDE_SYSTEM_LIBS_RAW)
+    execute_process(COMMAND llvm-config --system-libs --link-static OUTPUT_VARIABLE HALIDE_SYSTEM_LIBS_RAW)
     string(STRIP "${HALIDE_SYSTEM_LIBS_RAW}" HALIDE_SYSTEM_LIBS_RAW)  # strip whitespace from start & end
     string(REPLACE " " ";" HALIDE_SYSTEM_LIBS "${HALIDE_SYSTEM_LIBS_RAW}")  # convert into a list
     if ("${HALIDE_SYSTEM_LIBS}" STREQUAL "")
@@ -96,7 +54,7 @@ else ()
     endif ()
 endif ()
 
-execute_process(COMMAND ${LLVM_CONFIG} --cxxflags OUTPUT_VARIABLE LLVM_CONFIG_CXXFLAGS)
+execute_process(COMMAND llvm-config --cxxflags OUTPUT_VARIABLE LLVM_CONFIG_CXXFLAGS)
 string(FIND "${LLVM_CONFIG_CXXFLAGS}" "-std=c++2a" LLVM_CPP2a)
 string(FIND "${LLVM_CONFIG_CXXFLAGS}" "-std=c++20" LLVM_CPP20)
 string(FIND "${LLVM_CONFIG_CXXFLAGS}" "-std=c++17" LLVM_CPP17)
@@ -127,92 +85,14 @@ endif ()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Check LLVM
-function(check_dir VARNAME PATH)
-    if (NOT IS_ABSOLUTE "${PATH}")
-        message(FATAL_ERROR "\"${PATH}\" (${VARNAME}) must be an absolute path")
-    endif ()
-    if (NOT IS_DIRECTORY "${PATH}")
-        message(FATAL_ERROR "\"${PATH}\" (${VARNAME}) must be a directory")
-    endif ()
-endfunction()
-function(check_tool_exists NAME PATH)
-    # Need to convert to CMake path so that backslashes don't get
-    # interpreted as an escape.
-    file(TO_CMAKE_PATH "${PATH}" TOOL_PATH)
-    if (MSVC)
-        # LLVM5.x on Windows can include "$(Configuration)" in the path;
-        # fix this so we can use the paths right away.
-        string(REPLACE "$(Configuration)" "${CMAKE_BUILD_TYPE}" TOOL_PATH "${TOOL_PATH}")
-    endif ()
-    if (NOT EXISTS "${TOOL_PATH}")
-        message(FATAL_ERROR "Tool ${NAME} not found at ${TOOL_PATH}")
-    endif ()
-    message(STATUS "Using ${NAME} at ${TOOL_PATH}")
-endfunction()
-
-# Check LLVM tools exist
-check_tool_exists(llvm-as "${LLVM_AS}")
-check_tool_exists(llvm-nm "${LLVM_NM}")
-check_tool_exists(clang "${CLANG}")
-
-# Check reported LLVM version
-if (NOT "${LLVM_VERSION}" MATCHES "^[0-9]+$")
-    message(FATAL_ERROR "LLVM_VERSION not specified correctly, must be LLVM version times 10.")
-endif ()
-if (LLVM_VERSION LESS 80)
-    message(FATAL_ERROR "LLVM version must be 8.0 or newer")
-endif ()
-if (LLVM_VERSION GREATER 110)
-    message(FATAL_ERROR "LLVM version must be 11.0 or older")
-endif ()
-
-function(check_llvm_target TARGET HAS_TARGET)
-    set(${HAS_TARGET} OFF PARENT_SCOPE)
-    set(_llvm_required_version ${LLVM_VERSION})
-    if (ARGV2)
-        set(_llvm_required_version ${ARGV2})
-    endif ()
-    if (NOT LLVM_VERSION LESS _llvm_required_version)
-        list(FIND LLVM_TARGETS_TO_BUILD ${TARGET} _found_target)
-        if (_found_target GREATER -1)
-            set(${HAS_TARGET} ON PARENT_SCOPE)
-        else ()
-            set(${HAS_TARGET} OFF PARENT_SCOPE)
-        endif ()
-    endif ()
-endfunction()
-
-check_llvm_target(X86 WITH_X86)
-check_llvm_target(ARM WITH_ARM)
-check_llvm_target(AArch64 WITH_AARCH64)
-check_llvm_target(Hexagon WITH_HEXAGON 40)
-check_llvm_target(Mips WITH_MIPS)
-check_llvm_target(PowerPC WITH_POWERPC)
-check_llvm_target(NVPTX WITH_NVPTX)
-check_llvm_target(RISCV WITH_RISCV)
-# AMDGPU target is WIP
-check_llvm_target(AMDGPU WITH_AMDGPU)
-
-option(TARGET_X86 "Include x86 target" ${WITH_X86})
-option(TARGET_ARM "Include ARM target" ${WITH_ARM})
-option(TARGET_AARCH64 "Include AARCH64 (arm64) target" ${WITH_AARCH64})
-option(TARGET_HEXAGON "Include Hexagon target" ${WITH_HEXAGON})
 option(TARGET_METAL "Include Metal target" ON)
-option(TARGET_MIPS "Include MIPS target" ${WITH_MIPS})
-option(TARGET_POWERPC "Include POWERPC target" ${WITH_POWERPC})
-option(TARGET_PTX "Include PTX target" ${WITH_NVPTX})
-option(TARGET_AMDGPU "Include AMDGPU target" ${WITH_AMDGPU})
-option(TARGET_RISCV "Include RISCV target" ${WITH_RISCV})
 option(TARGET_OPENCL "Include OpenCL-C target" ON)
 option(TARGET_OPENGL "Include OpenGL/GLSL target" ON)
 option(TARGET_OPENGLCOMPUTE "Include OpenGLCompute target" ON)
 option(TARGET_D3D12COMPUTE "Include Direct3D 12 Compute target" ON)
-option(HALIDE_SHARED_LIBRARY "Build as a shared library" ON)
 option(LLVM_USE_SHARED_LLVM_LIBRARY "Use shared versions of LLVM libraries" OFF)
-option(HALIDE_ENABLE_RTTI "Enable RTTI" ${LLVM_ENABLE_RTTI})
-option(HALIDE_ENABLE_EXCEPTIONS "Enable exceptions" ${LLVM_ENABLE_EH})
 option(HALIDE_USE_CODEMODEL_LARGE "Use the Large LLVM codemodel" OFF)
+option(HALIDE_SHARED_LIBRARY "Build as a shared library" ON)
 
 if (HALIDE_SHARED_LIBRARY)
     set(HALIDE_LIBRARY_TYPE SHARED)
@@ -220,10 +100,6 @@ if (HALIDE_SHARED_LIBRARY)
 else ()
     set(HALIDE_LIBRARY_TYPE STATIC)
     message(STATUS "Building Halide as a static library")
-endif ()
-
-if (HALIDE_ENABLE_RTTI AND NOT LLVM_ENABLE_RTTI)
-    message(FATAL_ERROR "Can't enable RTTI. LLVM was compiled without it")
 endif ()
 
 # Needed for 'make distrib' to properly fill in the .tpl files
@@ -244,7 +120,7 @@ function(halide_project name folder)
             target_compile_options("${name}" PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>)
         endif ()
     endif ()
-    target_link_libraries("${name}" PRIVATE ${HALIDE_COMPILER_LIB} ${CMAKE_DL_LIBS} ${CMAKE_THREAD_LIBS_INIT})
+    target_link_libraries("${name}" PRIVATE ${HALIDE_COMPILER_LIB} ${CMAKE_DL_LIBS} Threads::Threads)
     target_include_directories("${name}" PRIVATE "${Halide_SOURCE_DIR}/src")
     target_include_directories("${name}" PRIVATE "${Halide_SOURCE_DIR}/tools")
     set_target_properties("${name}" PROPERTIES
@@ -307,12 +183,6 @@ if (MSVC)
     target_compile_options(binary2cpp PUBLIC /wd4996)
 endif ()
 
-
-# Look for OpenMP
-find_package(OpenMP QUIET)
-if (OPENMP_FOUND)
-    message(STATUS "Found OpenMP")
-endif ()
 
 # For in-tree builds, we need to set the input variables for halide.cmake
 # to specific values, rather than relying on HALIDE_DISTRIB_DIR to be set correctly.
