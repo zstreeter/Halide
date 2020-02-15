@@ -142,7 +142,8 @@ endif ()
 # Commands to build initial module objects.
 file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/${PROJECT_NAME}.build")
 set(CXX_WARNING_FLAGS -Wall -Werror -Wno-unused-function -Wcast-qual)
-set(RUNTIME_CXX_FLAGS -O3 -fno-vectorize -ffreestanding -fno-blocks -fno-exceptions -fno-unwind-tables -fpic -std=gnu++98)
+# Note: we don't want static locals to get thread synchronization stuff.
+set(RUNTIME_CXX_FLAGS -O3 -fno-vectorize -ffreestanding -fno-blocks -fno-exceptions -fno-unwind-tables -fpic -fno-threadsafe-statics)
 set(INITMOD_PREFIX "_initmod_")
 set(ARCHS 32 64)
 set(INITIAL_MODULES)
@@ -170,8 +171,6 @@ function(add_runtime_modules TARGET_RUNTIME_FILES TARGET_RUNTIME_DIR)
             set(INITMOD_D "${INITMOD_PREFIX}${i}_${j}_debug.cpp")
             set(INITMOD "${INITMOD_PREFIX}${i}_${j}.cpp")
 
-            # -std=gnu++98 is deliberate; we do NOT want c++11 here,
-            # as we don't want static locals to get thread synchronization stuff.
             add_custom_command(OUTPUT "${LL_D}"
                                # COMMENT "${SOURCE} -> ${LL_D}"
                                DEPENDS "${SOURCE}"
