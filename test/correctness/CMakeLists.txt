@@ -6,7 +6,7 @@ tests(GROUPS correctness travis
       async_copy_chain.cpp
       async.cpp
       async_device_copy.cpp
-      atomics.cpp
+#      atomics.cpp
       autodiff.cpp
       autoschedule_small_pure_update.cpp
       autotune_bug_2.cpp
