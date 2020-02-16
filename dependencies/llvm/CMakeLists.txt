@@ -48,7 +48,11 @@ check_llvm_target(AMDGPU WITH_AMDGPU)  # AMDGPU target is WIP
 ##
 
 add_library(llvm INTERFACE)
+target_include_directories(llvm INTERFACE ${LLVM_INCLUDE_DIRS})
+target_compile_definitions(llvm INTERFACE ${LLVM_DEFINITIONS})
+
 add_library(llvm_config INTERFACE)
+target_compile_definitions(llvm_config INTERFACE "LLVM_VERSION=${LLVM_VERSION_MAJOR}${LLVM_VERSION_MINOR}")
 
 ##
 # Create options that are initialized based on LLVM's config
@@ -118,14 +122,9 @@ if (TARGET_RISCV)
     list(APPEND LLVM_COMPONENTS RISCV)
 endif ()
 
-target_compile_definitions(llvm_config INTERFACE "LLVM_VERSION=${LLVM_VERSION_MAJOR}${LLVM_VERSION_MINOR}")
-
 ##
 # Finish setting up llvm library
 ##
-
-target_include_directories(llvm INTERFACE ${LLVM_INCLUDE_DIRS})
-target_compile_definitions(llvm INTERFACE ${LLVM_DEFINITIONS})
 
 # When building a shared library the LLVM libraries will either be
 # embedded or linked into the Halide library. When building a static library
@@ -153,7 +152,9 @@ if (HALIDE_ENABLE_RTTI AND NOT LLVM_ENABLE_RTTI)
 endif ()
 
 if (NOT LLVM_ENABLE_RTTI)
-
+    target_compile_options(llvm INTERFACE
+                           $<$<COMPILE_LANG_AND_ID:CXX,MSVC>:/GR- >
+                           $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:-fno-rtti>)
 endif ()
 
 ##
