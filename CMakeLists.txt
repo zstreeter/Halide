@@ -151,15 +151,7 @@ else ()
     endif ()
 endif ()
 
-# These tools are needed by several subdirectories
-add_executable(build_halide_h tools/build_halide_h.cpp)
-add_executable(binary2cpp tools/binary2cpp.cpp)
-if (MSVC)
-    # disable irrelevant "POSIX name" warnings
-    target_compile_options(build_halide_h PUBLIC /wd4996)
-    target_compile_options(binary2cpp PUBLIC /wd4996)
-endif ()
-
+add_subdirectory(tools)
 
 # Look for OpenMP
 find_package(OpenMP QUIET)
@@ -220,6 +212,7 @@ function(add_halide_test TARGET)
 endfunction()
 
 add_subdirectory(src)
+
 option(WITH_TESTS "Build tests" ON)
 if (WITH_TESTS)
     message(STATUS "Building tests enabled")
@@ -237,7 +230,7 @@ else ()
     message(STATUS "Building apps disabled")
 endif ()
 
-option(WITH_TUTORIALS "Build Tutorials" ON)
+option(WITH_TUTORIALS "Build tutorials" ON)
 if (WITH_TUTORIALS)
     message(STATUS "Building tutorials enabled")
     add_subdirectory(tutorial)
@@ -245,7 +238,7 @@ else ()
     message(STATUS "Building tutorials disabled")
 endif ()
 
-option(WITH_DOCS "Enable building of documentation" OFF)
+option(WITH_DOCS "Build documentation" OFF)
 if (WITH_DOCS)
     message(STATUS "Building docs enabled")
     add_subdirectory(doc)
