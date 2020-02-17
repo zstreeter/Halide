@@ -1,13 +1,5 @@
 include(CheckCXXCompilerFlag)
 
-if (MSVC)
-    # -g produces dwarf debugging info, which is not useful on windows
-    #  (and fails to compile due to llvm bug 15393)
-    set(RUNTIME_DEBUG_FLAG "")
-else ()
-    set(RUNTIME_DEBUG_FLAG "-g")
-endif ()
-
 set(RUNTIME_CPP
     aarch64_cpu_features
     alignment_128
@@ -141,16 +133,24 @@ endif ()
 
 # Commands to build initial module objects.
 file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/${PROJECT_NAME}.build")
-set(CXX_WARNING_FLAGS -Wall -Werror -Wno-unused-function -Wcast-qual)
+
 # Note: we don't want static locals to get thread synchronization stuff.
-set(RUNTIME_CXX_FLAGS -O3 -fno-vectorize -ffreestanding -fno-blocks -fno-exceptions -fno-unwind-tables -fpic -fno-threadsafe-statics)
 set(INITMOD_PREFIX "_initmod_")
-set(ARCHS 32 64)
 set(INITIAL_MODULES)
 
+if (MSVC)
+    # -g produces dwarf debugging info, which is not useful on windows
+    #  (and fails to compile due to llvm bug 15393)
+    set(RUNTIME_DEBUG_FLAG "")
+else ()
+    set(RUNTIME_DEBUG_FLAG "-g")
+endif ()
+
 function(add_runtime_modules TARGET_RUNTIME_FILES TARGET_RUNTIME_DIR)
+    set(CXX_WARNING_FLAGS -Wall -Werror -Wno-unused-function -Wcast-qual)
+    set(RUNTIME_CXX_FLAGS -O3 -fno-vectorize -ffreestanding -fno-blocks -fno-exceptions -fno-unwind-tables -fpic -fno-threadsafe-statics)
     foreach (i ${TARGET_RUNTIME_FILES})
-        foreach (j ${ARCHS})
+        foreach (j IN ITEMS 32 64)
             if (${j} EQUAL 32)
                 if (${i} MATCHES "windows_.*")
                     # win32 uses the stdcall calling convention, which is x86-specific
@@ -666,19 +666,21 @@ if (NOT LLVM_ENABLE_ASSERTIONS)
     target_compile_definitions(Halide PRIVATE NDEBUG)
 endif ()
 
-if (MSVC)
-    # Suppress some warnings
-    # 4244: conversion, possible loss of data
-    # 4267: conversion, possible loss of data
-    # 4800: BOOL -> true or false
-    # 4996: compiler encountered deprecated declaration
-    target_compile_options(Halide PUBLIC /wd4244 /wd4267 /wd4800 /wd4996)
-    # Injected from recent LLVM:
-    target_compile_options(Halide PUBLIC /wd4141)  # 'inline' used more than once
-    target_compile_options(Halide PUBLIC /wd4146)  # unary minus applied to unsigned type
-    target_compile_options(Halide PUBLIC /wd4291)  # No matching operator delete found
+## Suppress some warnings
+target_compile_options(Halide PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/wd4244>)  # 4244: conversion, possible loss of data
+target_compile_options(Halide PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/wd4267>)  # 4267: conversion, possible loss of data
+target_compile_options(Halide PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/wd4800>)  # 4800: BOOL -> true or false
+target_compile_options(Halide PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/wd4996>)  # 4996: compiler encountered deprecated declaration
+# Injected from recent LLVM:
+target_compile_options(Halide PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/wd4141>)  # 'inline' used more than once
+target_compile_options(Halide PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/wd4146>)  # unary minus applied to unsigned type
+target_compile_options(Halide PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/wd4291>)  # No matching operator delete found
 
-    target_compile_definitions(Halide PUBLIC "-D_CRT_SECURE_NO_WARNINGS" "-D_SCL_SECURE_NO_WARNINGS")
+target_compile_definitions(Halide PRIVATE
+                           $<$<CXX_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS>
+                           $<$<CXX_COMPILER_ID:MSVC>:_SCL_SECURE_NO_WARNINGS>)
+
+if (MSVC)
     # To compile LLVM headers following was taken from LLVM CMake files:
     # Disable sized deallocation if the flag is supported. MSVC fails to compile
     # the operator new overload in LLVM/IR/Function.h and Instruction.h otherwise.
