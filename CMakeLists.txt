@@ -16,12 +16,6 @@ include(CPack)
 
 add_subdirectory(dependencies)
 
-if (MSVC AND NOT CMAKE_CONFIGURATION_TYPES)
-    # LLVM5.x on Windows can include "$(Configuration)" in the path;
-    # fix this so we can use the paths right away.
-    string(REPLACE "$(Configuration)" "${CMAKE_BUILD_TYPE}" LLVM_TOOLS_BINARY_DIR "${LLVM_TOOLS_BINARY_DIR}")
-endif ()
-
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Windows")

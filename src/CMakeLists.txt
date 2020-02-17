@@ -708,12 +708,11 @@ endif ()
 target_link_libraries(Halide PRIVATE LLVM::LLVM LLVM::Config)
 
 if (NOT MSVC AND NOT LLVM_USE_SHARED_LLVM_LIBRARY)
-    set(LLVM_CONFIG ${LLVM_TOOLS_BINARY_DIR}/llvm-config)
     execute_process(COMMAND llvm-config --system-libs ${LLVM_COMPONENTS} OUTPUT_VARIABLE EXTRA_LIBS)
     string(STRIP EXTRA_LIBS "${EXTRA_LIBS}")   # strip whitespace from start & end
     string(REPLACE "\n" "" EXTRA_LIBS "${EXTRA_LIBS}")
     string(REPLACE " " ";" EXTRA_LIBS "${EXTRA_LIBS}")  # convert into a list
-    target_link_libraries(Halide PUBLIC ${EXTRA_LIBS})
+    target_link_libraries(Halide PRIVATE ${EXTRA_LIBS})
 endif ()
 
 add_library(halide_image_io INTERFACE)
