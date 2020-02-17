@@ -122,136 +122,6 @@ set(RUNTIME_BC
     compute_35
     )
 
-set(RUNTIME_DIR "${CMAKE_CURRENT_SOURCE_DIR}/runtime")
-file(TO_NATIVE_PATH "${RUNTIME_DIR}/" NATIVE_RUNTIME_DIR)
-file(TO_NATIVE_PATH "${CMAKE_CFG_INTDIR}/" NATIVE_INT_DIR)
-
-# ./ seems to confuse cmake on linux
-if ("${NATIVE_INT_DIR}" STREQUAL "./")
-    set(NATIVE_INT_DIR "")
-endif ()
-
-# Commands to build initial module objects.
-file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/${PROJECT_NAME}.build")
-
-# Note: we don't want static locals to get thread synchronization stuff.
-set(INITMOD_PREFIX "_initmod_")
-set(INITIAL_MODULES)
-
-if (MSVC)
-    # -g produces dwarf debugging info, which is not useful on windows
-    #  (and fails to compile due to llvm bug 15393)
-    set(RUNTIME_DEBUG_FLAG "")
-else ()
-    set(RUNTIME_DEBUG_FLAG "-g")
-endif ()
-
-function(add_runtime_modules TARGET_RUNTIME_FILES TARGET_RUNTIME_DIR)
-    set(CXX_WARNING_FLAGS -Wall -Werror -Wno-unused-function -Wcast-qual)
-    set(RUNTIME_CXX_FLAGS -O3 -fno-vectorize -ffreestanding -fno-blocks -fno-exceptions -fno-unwind-tables -fpic -fno-threadsafe-statics)
-    foreach (i ${TARGET_RUNTIME_FILES})
-        foreach (j IN ITEMS 32 64)
-            if (${j} EQUAL 32)
-                if (${i} MATCHES "windows_.*")
-                    # win32 uses the stdcall calling convention, which is x86-specific
-                    set(TARGET "i386-unknown-unknown-unknown")
-                else ()
-                    # (The 'nacl' is a red herring. This is just a generic 32-bit little-endian target.)
-                    set(TARGET "le32-unknown-nacl-unknown")
-                endif ()
-            else ()
-                # generic 64-bit code
-                set(TARGET "le64-unknown-unknown-unknown")
-            endif ()
-            set(SOURCE "${TARGET_RUNTIME_DIR}${i}.cpp")
-            set(LL_D "${PROJECT_BINARY_DIR}/${PROJECT_NAME}.build/${NATIVE_INT_DIR}initmod.${i}_${j}_debug.ll")
-            set(LL "${PROJECT_BINARY_DIR}/${PROJECT_NAME}.build/${NATIVE_INT_DIR}initmod.${i}_${j}.ll")
-            set(BC_D "${PROJECT_BINARY_DIR}/${PROJECT_NAME}.build/${NATIVE_INT_DIR}initmod.${i}_${j}_debug.bc")
-            set(BC "${PROJECT_BINARY_DIR}/${PROJECT_NAME}.build/${NATIVE_INT_DIR}initmod.${i}_${j}.bc")
-            set(INITMOD_D "${INITMOD_PREFIX}${i}_${j}_debug.cpp")
-            set(INITMOD "${INITMOD_PREFIX}${i}_${j}.cpp")
-
-            add_custom_command(OUTPUT "${LL_D}"
-                               # COMMENT "${SOURCE} -> ${LL_D}"
-                               DEPENDS "${SOURCE}"
-                               VERBATIM
-                               COMMAND clang ${CXX_WARNING_FLAGS} ${RUNTIME_DEBUG_FLAG} -DDEBUG_RUNTIME ${RUNTIME_CXX_FLAGS} -m${j} -target ${TARGET} -I${TARGET_RUNTIME_DIR} -DCOMPILING_HALIDE_RUNTIME -DLLVM_VERSION=${LLVM_VERSION} -DBITS_${j} -emit-llvm -S ${SOURCE} -o ${LL_D}
-                               # Make sure that the output of this command also depends
-                               # on the header files that ${SOURCE} uses
-                               # FIXME: Only works for makefile generator
-                               IMPLICIT_DEPENDS CXX "${SOURCE}"
-                               )
-            add_custom_command(OUTPUT "${LL}"
-                               # COMMENT "${SOURCE} -> ${LL}"
-                               DEPENDS "${SOURCE}"
-                               VERBATIM
-                               COMMAND clang ${CXX_WARNING_FLAGS} ${RUNTIME_CXX_FLAGS} -m${j} -target ${TARGET} -I${TARGET_RUNTIME_DIR} -DCOMPILING_HALIDE_RUNTIME -DLLVM_VERSION=${LLVM_VERSION} -DBITS_${j} -emit-llvm -S ${SOURCE} -o ${LL}
-                               )
-
-            add_custom_command(OUTPUT "${BC_D}"
-                               # COMMENT "${LL_D} -> ${BC_D}"
-                               DEPENDS "${LL_D}"
-                               COMMAND llvm-as "${LL_D}" -o "${BC_D}"
-                               )
-            add_custom_command(OUTPUT "${BC}"
-                               # COMMENT "${LL} -> ${BC}"
-                               DEPENDS "${LL}"
-                               COMMAND llvm-as "${LL}" -o "${BC}"
-                               )
-
-            add_custom_command(OUTPUT "${INITMOD_D}"
-                               # COMMENT "${BC_D} -> ${INITMOD_D}"
-                               DEPENDS "${BC_D}" binary2cpp
-                               COMMAND binary2cpp "halide_internal_initmod_${i}_${j}_debug" < "${BC_D}" > "${INITMOD_D}"
-                               )
-            add_custom_command(OUTPUT "${INITMOD}"
-                               # COMMENT "${BC} -> ${INITMOD}"
-                               DEPENDS "${BC}" binary2cpp
-                               COMMAND binary2cpp "halide_internal_initmod_${i}_${j}" < "${BC}" > "${INITMOD}"
-                               )
-            list(APPEND INITIAL_MODULES ${INITMOD})
-            list(APPEND INITIAL_MODULES ${INITMOD_D})
-        endforeach ()
-    endforeach ()
-
-    set(INITIAL_MODULES "${INITIAL_MODULES}" PARENT_SCOPE)
-endfunction(add_runtime_modules)
-
-add_runtime_modules("${RUNTIME_CPP}" "${NATIVE_RUNTIME_DIR}")
-
-foreach (i ${RUNTIME_LL})
-    set(LL "${NATIVE_RUNTIME_DIR}${i}.ll")
-    set(BC "${PROJECT_BINARY_DIR}/${PROJECT_NAME}.build/${NATIVE_INT_DIR}initmod.${i}.bc")
-    set(INITMOD "${INITMOD_PREFIX}${i}.cpp")
-    add_custom_command(OUTPUT "${BC}"
-                       # COMMENT "${LL} -> ${BC}"
-                       DEPENDS "${LL}"
-                       COMMAND llvm-as "${LL}" -o "${BC}"
-                       )
-    add_custom_command(OUTPUT "${INITMOD}"
-                       # COMMENT "${BC} -> ${INITMOD}"
-                       DEPENDS "${BC}" binary2cpp
-                       COMMAND binary2cpp "halide_internal_initmod_${i}_ll" < "${BC}" > "${INITMOD}"
-                       )
-    list(APPEND INITIAL_MODULES "${INITMOD}")
-endforeach ()
-foreach (i ${RUNTIME_BC})
-    set(INITMOD "${INITMOD_PREFIX}ptx_${i}.cpp")
-    add_custom_command(OUTPUT "${INITMOD}"
-                       # COMMENT "Building initial module ptx_${i}..."
-                       DEPENDS binary2cpp
-                       COMMAND binary2cpp "halide_internal_initmod_ptx_${i}_ll" < "${NATIVE_RUNTIME_DIR}nvidia_libdevice_bitcode/libdevice.${i}.10.bc" > "${INITMOD}"
-                       VERBATIM)
-    list(APPEND INITIAL_MODULES "${INITMOD}")
-endforeach ()
-
-add_custom_command(OUTPUT "${INITMOD_PREFIX}inlined_c.cpp"
-                   # COMMENT "halide_buffer_t.cpp -> ${INITMOD_PREFIX}inlined_c.cpp"
-                   DEPENDS "${NATIVE_RUNTIME_DIR}halide_buffer_t.cpp" binary2cpp
-                   COMMAND binary2cpp "halide_internal_initmod_inlined_c" < "${NATIVE_RUNTIME_DIR}halide_buffer_t.cpp" > "${INITMOD_PREFIX}inlined_c.cpp"
-                   )
-list(APPEND INITIAL_MODULES "${INITMOD_PREFIX}inlined_c.cpp")
-
 set(RUNTIME_HEADER_FILES
     HalideRuntime.h
     HalideRuntimeCuda.h
@@ -267,16 +137,6 @@ set(RUNTIME_HEADER_FILES
     HalidePyTorchHelpers.h
     HalidePyTorchCudaHelpers.h
     )
-
-foreach (i ${RUNTIME_HEADER_FILES})
-    string(REPLACE "." "_" SYM_NAME "${i}")
-    add_custom_command(OUTPUT "${INITMOD_PREFIX}${SYM_NAME}.cpp"
-                       # COMMENT "${i} -> ${INITMOD_PREFIX}${SYM_NAME}.cpp"
-                       DEPENDS "${NATIVE_RUNTIME_DIR}${i}" binary2cpp
-                       COMMAND binary2cpp "halide_internal_runtime_header_${SYM_NAME}" < "${NATIVE_RUNTIME_DIR}${i}" > "${INITMOD_PREFIX}${SYM_NAME}.cpp"
-                       )
-    list(APPEND INITIAL_MODULES "${INITMOD_PREFIX}${SYM_NAME}.cpp")
-endforeach ()
 
 # The externally-visible header files that go into making Halide.h.
 # Don't include anything here that includes llvm headers.
@@ -443,6 +303,316 @@ set(HEADER_FILES
     WrapCalls.h
     )
 
+# Keep this list sorted in alphabetical order.
+set(SOURCE_FILES
+    AddAtomicMutex.cpp
+    AddImageChecks.cpp
+    AddParameterChecks.cpp
+    AlignLoads.cpp
+    AllocationBoundsInference.cpp
+    ApplySplit.cpp
+    Argument.cpp
+    AssociativeOpsTable.cpp
+    Associativity.cpp
+    AsyncProducers.cpp
+    AutoSchedule.cpp
+    AutoScheduleUtils.cpp
+    BoundaryConditions.cpp
+    Bounds.cpp
+    BoundsInference.cpp
+    BoundSmallAllocations.cpp
+    Buffer.cpp
+    CanonicalizeGPUVars.cpp
+    Closure.cpp
+    CodeGen_ARM.cpp
+    CodeGen_C.cpp
+    CodeGen_D3D12Compute_Dev.cpp
+    CodeGen_GPU_Dev.cpp
+    CodeGen_GPU_Host.cpp
+    CodeGen_Hexagon.cpp
+    CodeGen_Internal.cpp
+    CodeGen_LLVM.cpp
+    CodeGen_Metal_Dev.cpp
+    CodeGen_MIPS.cpp
+    CodeGen_OpenCL_Dev.cpp
+    CodeGen_OpenGL_Dev.cpp
+    CodeGen_OpenGLCompute_Dev.cpp
+    CodeGen_Posix.cpp
+    CodeGen_PowerPC.cpp
+    CodeGen_PTX_Dev.cpp
+    CodeGen_PyTorch.cpp
+    CodeGen_RISCV.cpp
+    CodeGen_WebAssembly.cpp
+    CodeGen_X86.cpp
+    CPlusPlusMangle.cpp
+    CSE.cpp
+    Debug.cpp
+    DebugArguments.cpp
+    DebugToFile.cpp
+    Definition.cpp
+    Deinterleave.cpp
+    Derivative.cpp
+    DerivativeUtils.cpp
+    DeviceArgument.cpp
+    DeviceInterface.cpp
+    Dimension.cpp
+    EarlyFree.cpp
+    Elf.cpp
+    EliminateBoolVectors.cpp
+    EmulateFloat16Math.cpp
+    Error.cpp
+    FastIntegerDivide.cpp
+    FindCalls.cpp
+    Float16.cpp
+    Func.cpp
+    Function.cpp
+    FuseGPUThreadLoops.cpp
+    FuzzFloatStores.cpp
+    Generator.cpp
+    HexagonOffload.cpp
+    HexagonOptimize.cpp
+    ImageParam.cpp
+    InferArguments.cpp
+    InjectHostDevBufferCopies.cpp
+    InjectOpenGLIntrinsics.cpp
+    Inline.cpp
+    InlineReductions.cpp
+    IntegerDivisionTable.cpp
+    Interval.cpp
+    Introspection.cpp
+    IR.cpp
+    IREquality.cpp
+    IRMatch.cpp
+    IRMutator.cpp
+    IROperator.cpp
+    IRPrinter.cpp
+    IRVisitor.cpp
+    JITModule.cpp
+    Lerp.cpp
+    LICM.cpp
+    LLVM_Output.cpp
+    LLVM_Runtime_Linker.cpp
+    LoopCarry.cpp
+    Lower.cpp
+    LowerWarpShuffles.cpp
+    MatlabWrapper.cpp
+    Memoization.cpp
+    Module.cpp
+    ModulusRemainder.cpp
+    Monotonic.cpp
+    ObjectInstanceRegistry.cpp
+    OutputImageParam.cpp
+    ParallelRVar.cpp
+    Parameter.cpp
+    ParamMap.cpp
+    PartitionLoops.cpp
+    Pipeline.cpp
+    Prefetch.cpp
+    PrintLoopNest.cpp
+    Profiling.cpp
+    PurifyIndexMath.cpp
+    PythonExtensionGen.cpp
+    Qualify.cpp
+    Random.cpp
+    RDom.cpp
+    RealizationOrder.cpp
+    Reduction.cpp
+    RegionCosts.cpp
+    RemoveDeadAllocations.cpp
+    RemoveExternLoops.cpp
+    RemoveUndef.cpp
+    Schedule.cpp
+    ScheduleFunctions.cpp
+    SelectGPUAPI.cpp
+    Simplify.cpp
+    Simplify_Add.cpp
+    Simplify_And.cpp
+    Simplify_Call.cpp
+    Simplify_Cast.cpp
+    Simplify_Div.cpp
+    Simplify_EQ.cpp
+    Simplify_Exprs.cpp
+    Simplify_Let.cpp
+    Simplify_LT.cpp
+    Simplify_Max.cpp
+    Simplify_Min.cpp
+    Simplify_Mod.cpp
+    Simplify_Mul.cpp
+    Simplify_Not.cpp
+    Simplify_Or.cpp
+    Simplify_Select.cpp
+    Simplify_Shuffle.cpp
+    Simplify_Stmts.cpp
+    Simplify_Sub.cpp
+    SimplifyCorrelatedDifferences.cpp
+    SimplifySpecializations.cpp
+    SkipStages.cpp
+    SlidingWindow.cpp
+    Solve.cpp
+    SplitTuples.cpp
+    StmtToHtml.cpp
+    StorageFlattening.cpp
+    StorageFolding.cpp
+    StrictifyFloat.cpp
+    Substitute.cpp
+    Target.cpp
+    Tracing.cpp
+    TrimNoOps.cpp
+    Tuple.cpp
+    Type.cpp
+    UnifyDuplicateLets.cpp
+    UniquifyVariableNames.cpp
+    UnpackBuffers.cpp
+    UnrollLoops.cpp
+    UnsafePromises.cpp
+    Util.cpp
+    Var.cpp
+    VaryingAttributes.cpp
+    VectorizeLoops.cpp
+    WasmExecutor.cpp
+    WrapCalls.cpp
+    )
+
+set(RUNTIME_DIR "${CMAKE_CURRENT_SOURCE_DIR}/runtime")
+file(TO_NATIVE_PATH "${RUNTIME_DIR}/" NATIVE_RUNTIME_DIR)
+file(TO_NATIVE_PATH "${CMAKE_CFG_INTDIR}/" NATIVE_INT_DIR)
+
+# ./ seems to confuse cmake on linux
+if ("${NATIVE_INT_DIR}" STREQUAL "./")
+    set(NATIVE_INT_DIR "")
+endif ()
+
+# Commands to build initial module objects.
+file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/${PROJECT_NAME}.build")
+
+# Note: we don't want static locals to get thread synchronization stuff.
+set(INITMOD_PREFIX "_initmod_")
+set(INITIAL_MODULES)
+
+if (MSVC)
+    # -g produces dwarf debugging info, which is not useful on windows
+    #  (and fails to compile due to llvm bug 15393)
+    set(RUNTIME_DEBUG_FLAG "")
+else ()
+    set(RUNTIME_DEBUG_FLAG "-g")
+endif ()
+
+function(add_runtime_modules TARGET_RUNTIME_FILES TARGET_RUNTIME_DIR)
+    set(CXX_WARNING_FLAGS -Wall -Werror -Wno-unused-function -Wcast-qual)
+    set(RUNTIME_CXX_FLAGS -O3 -fno-vectorize -ffreestanding -fno-blocks -fno-exceptions -fno-unwind-tables -fpic -fno-threadsafe-statics)
+    foreach (i ${TARGET_RUNTIME_FILES})
+        foreach (j IN ITEMS 32 64)
+            if (${j} EQUAL 32)
+                if (${i} MATCHES "windows_.*")
+                    # win32 uses the stdcall calling convention, which is x86-specific
+                    set(TARGET "i386-unknown-unknown-unknown")
+                else ()
+                    # (The 'nacl' is a red herring. This is just a generic 32-bit little-endian target.)
+                    set(TARGET "le32-unknown-nacl-unknown")
+                endif ()
+            else ()
+                # generic 64-bit code
+                set(TARGET "le64-unknown-unknown-unknown")
+            endif ()
+            set(SOURCE "${TARGET_RUNTIME_DIR}${i}.cpp")
+            set(LL_D "${PROJECT_BINARY_DIR}/${PROJECT_NAME}.build/${NATIVE_INT_DIR}initmod.${i}_${j}_debug.ll")
+            set(LL "${PROJECT_BINARY_DIR}/${PROJECT_NAME}.build/${NATIVE_INT_DIR}initmod.${i}_${j}.ll")
+            set(BC_D "${PROJECT_BINARY_DIR}/${PROJECT_NAME}.build/${NATIVE_INT_DIR}initmod.${i}_${j}_debug.bc")
+            set(BC "${PROJECT_BINARY_DIR}/${PROJECT_NAME}.build/${NATIVE_INT_DIR}initmod.${i}_${j}.bc")
+            set(INITMOD_D "${INITMOD_PREFIX}${i}_${j}_debug.cpp")
+            set(INITMOD "${INITMOD_PREFIX}${i}_${j}.cpp")
+
+            add_custom_command(OUTPUT "${LL_D}"
+                               # COMMENT "${SOURCE} -> ${LL_D}"
+                               DEPENDS "${SOURCE}"
+                               VERBATIM
+                               COMMAND clang ${CXX_WARNING_FLAGS} ${RUNTIME_DEBUG_FLAG} -DDEBUG_RUNTIME ${RUNTIME_CXX_FLAGS} -m${j} -target ${TARGET} -I${TARGET_RUNTIME_DIR} -DCOMPILING_HALIDE_RUNTIME -DLLVM_VERSION=${LLVM_VERSION} -DBITS_${j} -emit-llvm -S ${SOURCE} -o ${LL_D}
+                               # Make sure that the output of this command also depends
+                               # on the header files that ${SOURCE} uses
+                               # FIXME: Only works for makefile generator
+                               IMPLICIT_DEPENDS CXX "${SOURCE}"
+                               )
+            add_custom_command(OUTPUT "${LL}"
+                               # COMMENT "${SOURCE} -> ${LL}"
+                               DEPENDS "${SOURCE}"
+                               VERBATIM
+                               COMMAND clang ${CXX_WARNING_FLAGS} ${RUNTIME_CXX_FLAGS} -m${j} -target ${TARGET} -I${TARGET_RUNTIME_DIR} -DCOMPILING_HALIDE_RUNTIME -DLLVM_VERSION=${LLVM_VERSION} -DBITS_${j} -emit-llvm -S ${SOURCE} -o ${LL}
+                               )
+
+            add_custom_command(OUTPUT "${BC_D}"
+                               # COMMENT "${LL_D} -> ${BC_D}"
+                               DEPENDS "${LL_D}"
+                               COMMAND llvm-as "${LL_D}" -o "${BC_D}"
+                               )
+            add_custom_command(OUTPUT "${BC}"
+                               # COMMENT "${LL} -> ${BC}"
+                               DEPENDS "${LL}"
+                               COMMAND llvm-as "${LL}" -o "${BC}"
+                               )
+
+            add_custom_command(OUTPUT "${INITMOD_D}"
+                               # COMMENT "${BC_D} -> ${INITMOD_D}"
+                               DEPENDS "${BC_D}" binary2cpp
+                               COMMAND binary2cpp "halide_internal_initmod_${i}_${j}_debug" < "${BC_D}" > "${INITMOD_D}"
+                               )
+            add_custom_command(OUTPUT "${INITMOD}"
+                               # COMMENT "${BC} -> ${INITMOD}"
+                               DEPENDS "${BC}" binary2cpp
+                               COMMAND binary2cpp "halide_internal_initmod_${i}_${j}" < "${BC}" > "${INITMOD}"
+                               )
+            list(APPEND INITIAL_MODULES ${INITMOD})
+            list(APPEND INITIAL_MODULES ${INITMOD_D})
+        endforeach ()
+    endforeach ()
+
+    set(INITIAL_MODULES "${INITIAL_MODULES}" PARENT_SCOPE)
+endfunction(add_runtime_modules)
+
+add_runtime_modules("${RUNTIME_CPP}" "${NATIVE_RUNTIME_DIR}")
+
+foreach (i ${RUNTIME_LL})
+    set(LL "${NATIVE_RUNTIME_DIR}${i}.ll")
+    set(BC "${PROJECT_BINARY_DIR}/${PROJECT_NAME}.build/${NATIVE_INT_DIR}initmod.${i}.bc")
+    set(INITMOD "${INITMOD_PREFIX}${i}.cpp")
+    add_custom_command(OUTPUT "${BC}"
+                       # COMMENT "${LL} -> ${BC}"
+                       DEPENDS "${LL}"
+                       COMMAND llvm-as "${LL}" -o "${BC}"
+                       )
+    add_custom_command(OUTPUT "${INITMOD}"
+                       # COMMENT "${BC} -> ${INITMOD}"
+                       DEPENDS "${BC}" binary2cpp
+                       COMMAND binary2cpp "halide_internal_initmod_${i}_ll" < "${BC}" > "${INITMOD}"
+                       )
+    list(APPEND INITIAL_MODULES "${INITMOD}")
+endforeach ()
+foreach (i ${RUNTIME_BC})
+    set(INITMOD "${INITMOD_PREFIX}ptx_${i}.cpp")
+    add_custom_command(OUTPUT "${INITMOD}"
+                       # COMMENT "Building initial module ptx_${i}..."
+                       DEPENDS binary2cpp
+                       COMMAND binary2cpp "halide_internal_initmod_ptx_${i}_ll" < "${NATIVE_RUNTIME_DIR}nvidia_libdevice_bitcode/libdevice.${i}.10.bc" > "${INITMOD}"
+                       VERBATIM)
+    list(APPEND INITIAL_MODULES "${INITMOD}")
+endforeach ()
+
+add_custom_command(OUTPUT "${INITMOD_PREFIX}inlined_c.cpp"
+                   # COMMENT "halide_buffer_t.cpp -> ${INITMOD_PREFIX}inlined_c.cpp"
+                   DEPENDS "${NATIVE_RUNTIME_DIR}halide_buffer_t.cpp" binary2cpp
+                   COMMAND binary2cpp "halide_internal_initmod_inlined_c" < "${NATIVE_RUNTIME_DIR}halide_buffer_t.cpp" > "${INITMOD_PREFIX}inlined_c.cpp"
+                   )
+list(APPEND INITIAL_MODULES "${INITMOD_PREFIX}inlined_c.cpp")
+
+foreach (i ${RUNTIME_HEADER_FILES})
+    string(REPLACE "." "_" SYM_NAME "${i}")
+    add_custom_command(OUTPUT "${INITMOD_PREFIX}${SYM_NAME}.cpp"
+                       # COMMENT "${i} -> ${INITMOD_PREFIX}${SYM_NAME}.cpp"
+                       DEPENDS "${NATIVE_RUNTIME_DIR}${i}" binary2cpp
+                       COMMAND binary2cpp "halide_internal_runtime_header_${SYM_NAME}" < "${NATIVE_RUNTIME_DIR}${i}" > "${INITMOD_PREFIX}${SYM_NAME}.cpp"
+                       )
+    list(APPEND INITIAL_MODULES "${INITMOD_PREFIX}${SYM_NAME}.cpp")
+endforeach ()
+
 file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/include")
 file(TO_NATIVE_PATH "${CMAKE_BINARY_DIR}/include/" NATIVE_INCLUDE_PATH)
 add_custom_command(OUTPUT "${CMAKE_BINARY_DIR}/include/Halide.h"
@@ -458,174 +628,8 @@ foreach (i ${RUNTIME_HEADER_FILES})
     configure_file(runtime/${i} "${CMAKE_BINARY_DIR}/include" COPYONLY)
 endforeach ()
 
-# Keep this list sorted in alphabetical order.
 add_library(Halide ${HALIDE_LIBRARY_TYPE}
-            AddAtomicMutex.cpp
-            AddImageChecks.cpp
-            AddParameterChecks.cpp
-            AlignLoads.cpp
-            AllocationBoundsInference.cpp
-            ApplySplit.cpp
-            Argument.cpp
-            AssociativeOpsTable.cpp
-            Associativity.cpp
-            AsyncProducers.cpp
-            AutoSchedule.cpp
-            AutoScheduleUtils.cpp
-            BoundaryConditions.cpp
-            Bounds.cpp
-            BoundsInference.cpp
-            BoundSmallAllocations.cpp
-            Buffer.cpp
-            CanonicalizeGPUVars.cpp
-            Closure.cpp
-            CodeGen_ARM.cpp
-            CodeGen_C.cpp
-            CodeGen_D3D12Compute_Dev.cpp
-            CodeGen_GPU_Dev.cpp
-            CodeGen_GPU_Host.cpp
-            CodeGen_Hexagon.cpp
-            CodeGen_Internal.cpp
-            CodeGen_LLVM.cpp
-            CodeGen_Metal_Dev.cpp
-            CodeGen_MIPS.cpp
-            CodeGen_OpenCL_Dev.cpp
-            CodeGen_OpenGL_Dev.cpp
-            CodeGen_OpenGLCompute_Dev.cpp
-            CodeGen_Posix.cpp
-            CodeGen_PowerPC.cpp
-            CodeGen_PTX_Dev.cpp
-            CodeGen_PyTorch.cpp
-            CodeGen_RISCV.cpp
-            CodeGen_WebAssembly.cpp
-            CodeGen_X86.cpp
-            CPlusPlusMangle.cpp
-            CSE.cpp
-            Debug.cpp
-            DebugArguments.cpp
-            DebugToFile.cpp
-            Definition.cpp
-            Deinterleave.cpp
-            Derivative.cpp
-            DerivativeUtils.cpp
-            DeviceArgument.cpp
-            DeviceInterface.cpp
-            Dimension.cpp
-            EarlyFree.cpp
-            Elf.cpp
-            EliminateBoolVectors.cpp
-            EmulateFloat16Math.cpp
-            Error.cpp
-            FastIntegerDivide.cpp
-            FindCalls.cpp
-            Float16.cpp
-            Func.cpp
-            Function.cpp
-            FuseGPUThreadLoops.cpp
-            FuzzFloatStores.cpp
-            Generator.cpp
-            HexagonOffload.cpp
-            HexagonOptimize.cpp
-            ImageParam.cpp
-            InferArguments.cpp
-            InjectHostDevBufferCopies.cpp
-            InjectOpenGLIntrinsics.cpp
-            Inline.cpp
-            InlineReductions.cpp
-            IntegerDivisionTable.cpp
-            Interval.cpp
-            Introspection.cpp
-            IR.cpp
-            IREquality.cpp
-            IRMatch.cpp
-            IRMutator.cpp
-            IROperator.cpp
-            IRPrinter.cpp
-            IRVisitor.cpp
-            JITModule.cpp
-            Lerp.cpp
-            LICM.cpp
-            LLVM_Output.cpp
-            LLVM_Runtime_Linker.cpp
-            LoopCarry.cpp
-            Lower.cpp
-            LowerWarpShuffles.cpp
-            MatlabWrapper.cpp
-            Memoization.cpp
-            Module.cpp
-            ModulusRemainder.cpp
-            Monotonic.cpp
-            ObjectInstanceRegistry.cpp
-            OutputImageParam.cpp
-            ParallelRVar.cpp
-            Parameter.cpp
-            ParamMap.cpp
-            PartitionLoops.cpp
-            Pipeline.cpp
-            Prefetch.cpp
-            PrintLoopNest.cpp
-            Profiling.cpp
-            PurifyIndexMath.cpp
-            PythonExtensionGen.cpp
-            Qualify.cpp
-            Random.cpp
-            RDom.cpp
-            RealizationOrder.cpp
-            Reduction.cpp
-            RegionCosts.cpp
-            RemoveDeadAllocations.cpp
-            RemoveExternLoops.cpp
-            RemoveUndef.cpp
-            Schedule.cpp
-            ScheduleFunctions.cpp
-            SelectGPUAPI.cpp
-            Simplify.cpp
-            Simplify_Add.cpp
-            Simplify_And.cpp
-            Simplify_Call.cpp
-            Simplify_Cast.cpp
-            Simplify_Div.cpp
-            Simplify_EQ.cpp
-            Simplify_Exprs.cpp
-            Simplify_Let.cpp
-            Simplify_LT.cpp
-            Simplify_Max.cpp
-            Simplify_Min.cpp
-            Simplify_Mod.cpp
-            Simplify_Mul.cpp
-            Simplify_Not.cpp
-            Simplify_Or.cpp
-            Simplify_Select.cpp
-            Simplify_Shuffle.cpp
-            Simplify_Stmts.cpp
-            Simplify_Sub.cpp
-            SimplifyCorrelatedDifferences.cpp
-            SimplifySpecializations.cpp
-            SkipStages.cpp
-            SlidingWindow.cpp
-            Solve.cpp
-            SplitTuples.cpp
-            StmtToHtml.cpp
-            StorageFlattening.cpp
-            StorageFolding.cpp
-            StrictifyFloat.cpp
-            Substitute.cpp
-            Target.cpp
-            Tracing.cpp
-            TrimNoOps.cpp
-            Tuple.cpp
-            Type.cpp
-            UnifyDuplicateLets.cpp
-            UniquifyVariableNames.cpp
-            UnpackBuffers.cpp
-            UnrollLoops.cpp
-            UnsafePromises.cpp
-            Util.cpp
-            Var.cpp
-            VaryingAttributes.cpp
-            VectorizeLoops.cpp
-            WasmExecutor.cpp
-            WrapCalls.cpp
+            ${SOURCE_FILES}
             ${HEADER_FILES}
             ${INITIAL_MODULES}
             )
