@@ -18,15 +18,17 @@ endif ()
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
 # Require the given C++ standard
+# TODO: evaluate if we actually need to match LLVM on this.
+set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_subdirectory(dependencies)
 
 # TODO: why override this?
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${Halide_BINARY_DIR}/lib")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${Halide_BINARY_DIR}/lib")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${Halide_BINARY_DIR}/bin")
 
 option(LLVM_USE_SHARED_LLVM_LIBRARY "Use shared versions of LLVM libraries" OFF)
 if (LLVM_USE_SHARED_LLVM_LIBRARY)
@@ -47,22 +49,6 @@ else ()
     endif ()
 endif ()
 
-execute_process(COMMAND llvm-config --cxxflags OUTPUT_VARIABLE LLVM_CONFIG_CXXFLAGS)
-string(FIND "${LLVM_CONFIG_CXXFLAGS}" "-std=c++2a" LLVM_CPP2a)
-string(FIND "${LLVM_CONFIG_CXXFLAGS}" "-std=c++20" LLVM_CPP20)
-string(FIND "${LLVM_CONFIG_CXXFLAGS}" "-std=c++17" LLVM_CPP17)
-string(FIND "${LLVM_CONFIG_CXXFLAGS}" "-std=c++14" LLVM_CPP14)
-if (LLVM_CPP2a GREATER -1 OR LLVM_CPP20 GREATER -1)
-    set(CMAKE_CXX_STANDARD 20)
-elseif (LLVM_CPP17 GREATER -1)
-    set(CMAKE_CXX_STANDARD 17)
-elseif (LLVM_CPP14 GREATER -1)
-    set(CMAKE_CXX_STANDARD 14)
-else ()
-    # Require (at least) C++11 for everything.
-    set(CMAKE_CXX_STANDARD 11)
-endif ()
-
 # TODO: this only works on Clang. What is this actually fixing?
 # see: https://libcxx.llvm.org/docs/UsingLibcxx.html#id5
 string(FIND "${LLVM_CONFIG_CXXFLAGS}" "-stdlib=libc++" LLVM_LIBCXX)
@@ -70,8 +56,6 @@ if (LLVM_LIBCXX GREATER -1)
     add_compile_options(-stdlib=libc++)
     add_link_options(-stdlib=libc++)
 endif ()
-
-#option(TARGET_OPENGLCOMPUTE "Include OpenGLCompute target" ON)
 
 # Needed for 'make distrib' to properly fill in the .tpl files
 if (HALIDE_ENABLE_RTTI)
@@ -129,7 +113,7 @@ add_subdirectory(tools)
 
 # For in-tree builds, we need to set the input variables for halide.cmake
 # to specific values, rather than relying on HALIDE_DISTRIB_DIR to be set correctly.
-set(HALIDE_INCLUDE_DIR "${CMAKE_BINARY_DIR}/include")
+set(HALIDE_INCLUDE_DIR "${Halide_BINARY_DIR}/include")
 set(HALIDE_TOOLS_DIR "${Halide_SOURCE_DIR}/tools")
 set(HALIDE_COMPILER_LIB Halide)
 set(HALIDE_DISTRIB_DIR "/bad-path")

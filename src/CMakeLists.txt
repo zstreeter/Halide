@@ -354,7 +354,7 @@ add_custom_command(OUTPUT "${Halide_BINARY_DIR}/include/Halide.h"
 add_custom_target(
         HalideIncludes
         ALL
-        DEPENDS "${CMAKE_BINARY_DIR}/include/Halide.h")
+        DEPENDS "${Halide_BINARY_DIR}/include/Halide.h")
 
 ##
 # Define the Halide library target.
@@ -390,7 +390,7 @@ target_compile_definitions(Halide PRIVATE "Halide_${HALIDE_LIBRARY_TYPE}")
 add_dependencies(Halide HalideIncludes)
 
 # TODO: don't depend on headers in binary directory!
-target_include_directories(Halide INTERFACE "${CMAKE_BINARY_DIR}/include")
+target_include_directories(Halide INTERFACE "${Halide_BINARY_DIR}/include")
 target_include_directories(Halide INTERFACE "${Halide_SOURCE_DIR}/tools")
 target_include_directories(Halide PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 
