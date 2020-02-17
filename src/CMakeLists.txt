@@ -634,10 +634,10 @@ add_library(Halide ${HALIDE_LIBRARY_TYPE}
 # since multiple MSBuild projects might get built in parallel, each of which compiling their
 # source files in parallel; the Halide library itself is a "knot" point of the build graph,
 # so compiling its files in parallel should not oversubscribe the system
-target_compile_options(Halide PUBLIC $<$<CXX_COMPILER_ID:MSVC>:/MP>)
+target_compile_options(Halide PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/MP>)
 
 # Define Halide_SHARED or Halide_STATIC depending on library type
-target_compile_definitions(Halide PRIVATE "-DHalide_${HALIDE_LIBRARY_TYPE}")
+target_compile_definitions(Halide PRIVATE "Halide_${HALIDE_LIBRARY_TYPE}")
 add_dependencies(Halide HalideIncludes)
 
 # TODO: don't depend on headers in binary directory!
@@ -645,23 +645,27 @@ target_include_directories(Halide INTERFACE "${CMAKE_BINARY_DIR}/include")
 
 # Set definitions and compiler flags
 
+option(TARGET_OPENCL "Include OpenCL-C target" ON)
 if (TARGET_OPENCL)
-    target_compile_definitions(Halide PRIVATE "-DWITH_OPENCL")
+    target_compile_definitions(Halide PRIVATE WITH_OPENCL)
 endif ()
 
+option(TARGET_OPENGL "Include OpenGL/GLSL target" ON)
 if (TARGET_OPENGL)
-    target_compile_definitions(Halide PRIVATE "-DWITH_OPENGL")
+    target_compile_definitions(Halide PRIVATE WITH_OPENGL)
 endif ()
 
+option(TARGET_METAL "Include Metal target" ON)
 if (TARGET_METAL)
-    target_compile_definitions(Halide PRIVATE "-DWITH_METAL")
+    target_compile_definitions(Halide PRIVATE WITH_METAL)
 endif ()
 
+option(TARGET_D3D12COMPUTE "Include Direct3D 12 Compute target" ON)
 if (TARGET_D3D12COMPUTE)
-    target_compile_definitions(Halide PRIVATE "-DWITH_D3D12")
+    target_compile_definitions(Halide PRIVATE WITH_D3D12)
 endif ()
 
-target_compile_definitions(Halide PRIVATE "-DCOMPILING_HALIDE")
+target_compile_definitions(Halide PRIVATE COMPILING_HALIDE)
 if (NOT LLVM_ENABLE_ASSERTIONS)
     target_compile_definitions(Halide PRIVATE NDEBUG)
 endif ()
