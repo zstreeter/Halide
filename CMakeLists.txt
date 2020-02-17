@@ -1,41 +1,34 @@
 cmake_minimum_required(VERSION 3.14)
 project(Halide)
 
-set(CPACK_PACKAGE_VENDOR "Halide")
-set(CPACK_RESOURCE_FILE_LICENSE "${Halide_SOURCE_DIR}/LICENSE.txt")
-set(CPACK_MONOLITHIC_INSTALL OFF)
-if (WIN32)
-    set(CPACK_GENERATOR "ZIP")
-else ()
-    set(CPACK_GENERATOR "TGZ")
+##
+# Set up project-wide properties
+##
+get_property(USE_FOLDERS_WAS_SET GLOBAL PROPERTY USE_FOLDERS SET)
+if (NOT USE_FOLDERS_WAS_SET)
+    set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 endif ()
-# Remove this to get package names that are formatted as
-# ${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CPACK_SYSTEM_NAME}.
-set(CPACK_PACKAGE_FILE_NAME "Halide" CACHE STRING "Name of package created by distrib target")
-include(CPack)
-
-add_subdirectory(dependencies)
-
-if (MSVC AND NOT CMAKE_CONFIGURATION_TYPES)
-    # LLVM5.x on Windows can include "$(Configuration)" in the path;
-    # fix this so we can use the paths right away.
-    string(REPLACE "$(Configuration)" "${CMAKE_BUILD_TYPE}" LLVM_TOOLS_BINARY_DIR "${LLVM_TOOLS_BINARY_DIR}")
-endif ()
-
-set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
     set(CMAKE_OBJECT_PATH_MAX 260)
     message("Windows: setting CMAKE_OBJECT_PATH_MAX to ${CMAKE_OBJECT_PATH_MAX}")
 endif ()
 
-# Export all symbols
+# Export all symbols -- TODO: reevaluate this. We should probably be selective about what we export.
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
+# Require the given C++ standard
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+add_subdirectory(dependencies)
+
+# TODO: why override this?
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
+option(LLVM_USE_SHARED_LLVM_LIBRARY "Use shared versions of LLVM libraries" OFF)
 if (LLVM_USE_SHARED_LLVM_LIBRARY)
     # Since we will be linking to the shared LLVM library,
     # we will get all the transitive dependencies for free automagically.
@@ -70,37 +63,15 @@ else ()
     set(CMAKE_CXX_STANDARD 11)
 endif ()
 
+# TODO: this only works on Clang. What is this actually fixing?
+# see: https://libcxx.llvm.org/docs/UsingLibcxx.html#id5
 string(FIND "${LLVM_CONFIG_CXXFLAGS}" "-stdlib=libc++" LLVM_LIBCXX)
 if (LLVM_LIBCXX GREATER -1)
     add_compile_options(-stdlib=libc++)
-    if (COMMAND add_link_options)
-        add_link_options(-stdlib=libc++)
-    else ()
-        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -stdlib=libc++")
-        set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -stdlib=libc++")
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++")
-    endif ()
+    add_link_options(-stdlib=libc++)
 endif ()
 
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
-option(TARGET_METAL "Include Metal target" ON)
-option(TARGET_OPENCL "Include OpenCL-C target" ON)
-option(TARGET_OPENGL "Include OpenGL/GLSL target" ON)
-option(TARGET_OPENGLCOMPUTE "Include OpenGLCompute target" ON)
-option(TARGET_D3D12COMPUTE "Include Direct3D 12 Compute target" ON)
-option(LLVM_USE_SHARED_LLVM_LIBRARY "Use shared versions of LLVM libraries" OFF)
-option(HALIDE_USE_CODEMODEL_LARGE "Use the Large LLVM codemodel" OFF)
-option(HALIDE_SHARED_LIBRARY "Build as a shared library" ON)
-
-if (HALIDE_SHARED_LIBRARY)
-    set(HALIDE_LIBRARY_TYPE SHARED)
-    message(STATUS "Building Halide as a shared library")
-else ()
-    set(HALIDE_LIBRARY_TYPE STATIC)
-    message(STATUS "Building Halide as a static library")
-endif ()
+#option(TARGET_OPENGLCOMPUTE "Include OpenGLCompute target" ON)
 
 # Needed for 'make distrib' to properly fill in the .tpl files
 if (HALIDE_ENABLE_RTTI)
@@ -111,24 +82,10 @@ endif ()
 
 function(halide_project name folder)
     add_executable("${name}" ${ARGN})
-    if (MSVC)
-        if (NOT HALIDE_ENABLE_RTTI)
-            target_compile_options("${name}" PUBLIC $<$<COMPILE_LANGUAGE:CXX>:/GR- >)
-        endif ()
-    else ()
-        if (NOT HALIDE_ENABLE_RTTI)
-            target_compile_options("${name}" PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>)
-        endif ()
-    endif ()
-    target_link_libraries("${name}" PRIVATE ${HALIDE_COMPILER_LIB} ${CMAKE_DL_LIBS} Threads::Threads)
-    target_include_directories("${name}" PRIVATE "${Halide_SOURCE_DIR}/src")
-    target_include_directories("${name}" PRIVATE "${Halide_SOURCE_DIR}/tools")
+    target_link_libraries("${name}" PRIVATE Halide::Halide ${CMAKE_DL_LIBS} Threads::Threads $<$<CXX_COMPILER_ID:MSVC>:Kernel32>)
     set_target_properties("${name}" PROPERTIES
                           FOLDER "${folder}"
                           ENABLE_EXPORTS True)
-    if (MSVC)
-        target_link_libraries("${name}" PRIVATE Kernel32)
-    endif ()
 endfunction(halide_project)
 
 # Set warnings globally
@@ -154,9 +111,6 @@ if (NOT MSVC)
     if (HALIDE_ENABLE_EXCEPTIONS)
         add_compile_options(-DWITH_EXCEPTIONS)
     endif ()
-    if (HALIDE_USE_CODEMODEL_LARGE)
-        add_compile_options(-DHALIDE_USE_CODEMODEL_LARGE)
-    endif ()
 else ()
     add_compile_options(/W3)
     add_compile_options(/wd4018)  # disable "signed/unsigned mismatch"
@@ -169,20 +123,9 @@ else ()
     if (HALIDE_ENABLE_EXCEPTIONS)
         add_compile_options(/DWITH_EXCEPTIONS)
     endif ()
-    if (HALIDE_USE_CODEMODEL_LARGE)
-        add_compile_options(/DHALIDE_USE_CODEMODEL_LARGE)
-    endif ()
 endif ()
 
-# These tools are needed by several subdirectories
-add_executable(build_halide_h tools/build_halide_h.cpp)
-add_executable(binary2cpp tools/binary2cpp.cpp)
-if (MSVC)
-    # disable irrelevant "POSIX name" warnings
-    target_compile_options(build_halide_h PUBLIC /wd4996)
-    target_compile_options(binary2cpp PUBLIC /wd4996)
-endif ()
-
+add_subdirectory(tools)
 
 # For in-tree builds, we need to set the input variables for halide.cmake
 # to specific values, rather than relying on HALIDE_DISTRIB_DIR to be set correctly.
@@ -237,6 +180,7 @@ function(add_halide_test TARGET)
 endfunction()
 
 add_subdirectory(src)
+
 option(WITH_TESTS "Build tests" ON)
 if (WITH_TESTS)
     message(STATUS "Building tests enabled")
@@ -254,7 +198,7 @@ else ()
     message(STATUS "Building apps disabled")
 endif ()
 
-option(WITH_TUTORIALS "Build Tutorials" ON)
+option(WITH_TUTORIALS "Build tutorials" ON)
 if (WITH_TUTORIALS)
     message(STATUS "Building tutorials enabled")
     add_subdirectory(tutorial)
@@ -262,7 +206,7 @@ else ()
     message(STATUS "Building tutorials disabled")
 endif ()
 
-option(WITH_DOCS "Enable building of documentation" OFF)
+option(WITH_DOCS "Build documentation" OFF)
 if (WITH_DOCS)
     message(STATUS "Building docs enabled")
     add_subdirectory(doc)
@@ -343,3 +287,16 @@ add_custom_target(distrib
 
 add_custom_target(format
                   COMMAND find "${Halide_SOURCE_DIR}/apps" "${Halide_SOURCE_DIR}/src" "${Halide_SOURCE_DIR}/tools" "${Halide_SOURCE_DIR}/test" "${Halide_SOURCE_DIR}/util" "${Halide_SOURCE_DIR}/python_bindings" -name *.cpp -o -name *.h -o -name *.c | xargs ${CLANG}-format -i -style=file)
+
+set(CPACK_PACKAGE_VENDOR "Halide")
+set(CPACK_RESOURCE_FILE_LICENSE "${Halide_SOURCE_DIR}/LICENSE.txt")
+set(CPACK_MONOLITHIC_INSTALL OFF)
+if (WIN32)
+    set(CPACK_GENERATOR "ZIP")
+else ()
+    set(CPACK_GENERATOR "TGZ")
+endif ()
+# Remove this to get package names that are formatted as
+# ${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CPACK_SYSTEM_NAME}.
+set(CPACK_PACKAGE_FILE_NAME "Halide" CACHE STRING "Name of package created by distrib target")
+include(CPack)
