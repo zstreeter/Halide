@@ -1,5 +1,3 @@
-set(Halide_TEST_ROOT "${CMAKE_CURRENT_LIST_DIR}")
-
 # Add an OBJECT (not static) library to convert abort calls into exit(1).
 add_library(Halide_expect_abort OBJECT common/expect_abort.cpp)
 
