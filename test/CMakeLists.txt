@@ -11,14 +11,13 @@ target_include_directories(Halide_test INTERFACE
                            common)
 
 # Tests are built with the equivalent of OPTIMIZE_FOR_BUILD_TIME (-O0 or /Od).
-if (MSVC)
-    target_compile_options(Halide_test INTERFACE "$<$<CONFIG:RELEASE>:/Od>")
-else ()
-    # Also allow tests, via conditional compilation, to use the entire
-    # capability of the CPU being compiled on via -march=native. This
-    # presumes tests are run on the same machine they are compiled on.
-    target_compile_options(Halide_test INTERFACE "$<$<CONFIG:RELEASE>:-O0>" "-march=native")
-endif ()
+# Also allow tests, via conditional compilation, to use the entire
+# capability of the CPU being compiled on via -march=native. This
+# presumes tests are run on the same machine they are compiled on.
+target_compile_options(Halide_test INTERFACE
+                       $<$<CXX_COMPILER_ID:MSVC>:/Od>
+                       $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-O0>
+                       $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-march=native>)
 
 function(tests)
     set(options EXPECT_FAILURE)
