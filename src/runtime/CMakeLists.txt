@@ -276,5 +276,5 @@ endforeach ()
 
 # TODO: replace with install.
 foreach (i ${RUNTIME_HEADER_FILES})
-    configure_file(${i} "${Halide_BINARY_DIR}/include" COPYONLY)
+    configure_file(${i} "${Halide_BINARY_DIR}/include/${i}" COPYONLY)
 endforeach ()

@@ -345,10 +345,10 @@ add_subdirectory(runtime)
 # TODO: break dependency on this for internal use
 ##
 
-file(MAKE_DIRECTORY "${Halide_BINARY_DIR}/include")
 file(TO_NATIVE_PATH "${Halide_BINARY_DIR}/include/" NATIVE_INCLUDE_PATH)
+file(TO_NATIVE_PATH "${Halide_SOURCE_DIR}/LICENSE.txt" NATIVE_LICENSE_PATH)
 add_custom_command(OUTPUT "${Halide_BINARY_DIR}/include/Halide.h"
-                   COMMAND build_halide_h "${Halide_SOURCE_DIR}/LICENSE.txt" ${HEADER_FILES} > "${NATIVE_INCLUDE_PATH}Halide.h"
+                   COMMAND build_halide_h "${NATIVE_LICENSE_PATH}" ${HEADER_FILES} > "${NATIVE_INCLUDE_PATH}Halide.h"
                    WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}"
                    DEPENDS build_halide_h "${Halide_SOURCE_DIR}/LICENSE.txt" ${HEADER_FILES})
 add_custom_target(
