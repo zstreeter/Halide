@@ -335,9 +335,47 @@ set(SOURCE_FILES
     WrapCalls.cpp
     )
 
+# Set warnings globally
+option(WARNINGS_AS_ERRORS "Treat warnings as errors" ON)
+if (WARNINGS_AS_ERRORS)
+    message(STATUS "WARNINGS_AS_ERRORS enabled")
+else ()
+    message(STATUS "WARNINGS_AS_ERRORS disabled")
+endif ()
+
+if (NOT MSVC)
+    add_compile_options(
+            -Wall
+            -Wno-unused-function
+            -Wcast-qual
+            -Wignored-qualifiers
+            $<$<COMPILE_LANGUAGE:CXX>:-Woverloaded-virtual>
+            $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:GNU>,$<VERSION_GREATER:$<CXX_COMPILER_VERSION>,5.1>>:-Wsuggest-override>
+    )
+    if (WARNINGS_AS_ERRORS)
+        add_compile_options(-Werror)
+    endif ()
+    if (HALIDE_ENABLE_EXCEPTIONS)
+        add_compile_options(-DWITH_EXCEPTIONS)
+    endif ()
+else ()
+    add_compile_options(/W3)
+    add_compile_options(/wd4018)  # disable "signed/unsigned mismatch"
+    add_compile_options(/wd4503)  # disable "decorated name length exceeded, name was truncated"
+    add_compile_options(/wd4267)  # disable "conversion from 'size_t' to 'int', possible loss of data"
+    add_compile_options(/wd4800)  # forcing value to bool 'true' or 'false' (performance warning)
+    if (WARNINGS_AS_ERRORS)
+        add_compile_options(/WX)
+    endif ()
+    if (HALIDE_ENABLE_EXCEPTIONS)
+        add_compile_options(/DWITH_EXCEPTIONS)
+    endif ()
+endif ()
+
 ##
 # Build and import the runtime.
 ##
+
 add_subdirectory(runtime)
 
 ##
@@ -383,6 +421,16 @@ if (NOT MSVC AND NOT LLVM_USE_SHARED_LLVM_LIBRARY)
 endif ()
 
 add_dependencies(Halide HalideIncludes)
+
+##
+# Include paths for libHalide
+##
+
+include(GNUInstallDirs)
+target_include_directories(Halide
+                           INTERFACE
+                           $<BUILD_INTERFACE:${Halide_BINARY_DIR}/include>
+                           $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 
 ##
 # Set compiler options for libHalide
@@ -442,15 +490,6 @@ target_compile_options(Halide
                        )
 
 ##
-# Set up include directories for libHalide
-##
-
-# TODO: don't depend on headers in binary directory!
-target_include_directories(Halide INTERFACE "${Halide_BINARY_DIR}/include")
-target_include_directories(Halide INTERFACE "${Halide_SOURCE_DIR}/tools")
-target_include_directories(Halide PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
-
-##
 # Set up macro definitions for libHalide
 ##
 
@@ -496,21 +535,15 @@ endif ()
 # Interface target for enabling PNG/JPEG support in Halide
 ##
 
-add_library(halide_image_io INTERFACE)
-add_library(Halide::ImageIO ALIAS halide_image_io)
+add_library(Halide_ImageIO INTERFACE)
+add_library(Halide::ImageIO ALIAS Halide_ImageIO)
+set_target_properties(Halide_ImageIO PROPERTIES EXPORT_NAME ImageIO)
 
 foreach (LIB IN ITEMS PNG JPEG)
     if (TARGET ${LIB}::${LIB})
-        target_link_libraries(halide_image_io INTERFACE ${LIB}::${LIB})
+        target_link_libraries(Halide_ImageIO INTERFACE ${LIB}::${LIB})
     else ()
         message(STATUS "${LIB} not found; compiling with -DHALIDE_NO_${LIB}")
-        target_compile_definitions(halide_image_io INTERFACE HALIDE_NO_${LIB})
+        target_compile_definitions(Halide_ImageIO INTERFACE HALIDE_NO_${LIB})
     endif ()
 endforeach ()
-
-##
-# Install and export targets.
-##
-
-include(GNUInstallDirs)
-install(TARGETS Halide halide_image_io)
