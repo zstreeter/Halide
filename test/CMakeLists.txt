@@ -4,21 +4,20 @@ set(Halide_TEST_ROOT "${CMAKE_CURRENT_LIST_DIR}")
 add_library(Halide_expect_abort OBJECT common/expect_abort.cpp)
 
 # Capture common halide test features in a single target.
-add_library(halide_test INTERFACE)
-target_include_directories(halide_test INTERFACE
+add_library(Halide_test INTERFACE)
+target_include_directories(Halide_test INTERFACE
                            "${HALIDE_INCLUDE_DIR}"
                            "${Halide_SOURCE_DIR}" # TODO: break this dependency.
                            common)
-target_compile_definitions(halide_test INTERFACE "LLVM_VERSION=${LLVM_VERSION}")
 
 # Tests are built with the equivalent of OPTIMIZE_FOR_BUILD_TIME (-O0 or /Od).
 if (MSVC)
-    target_compile_options(halide_test INTERFACE "$<$<CONFIG:RELEASE>:/Od>")
+    target_compile_options(Halide_test INTERFACE "$<$<CONFIG:RELEASE>:/Od>")
 else ()
     # Also allow tests, via conditional compilation, to use the entire
     # capability of the CPU being compiled on via -march=native. This
     # presumes tests are run on the same machine they are compiled on.
-    target_compile_options(halide_test INTERFACE "$<$<CONFIG:RELEASE>:-O0>" "-march=native")
+    target_compile_options(Halide_test INTERFACE "$<$<CONFIG:RELEASE>:-O0>" "-march=native")
 endif ()
 
 function(tests)
@@ -37,7 +36,7 @@ function(tests)
         list(APPEND TEST_NAMES "${TARGET}")
 
         halide_project("${TARGET}" "${CMAKE_CURRENT_SOURCE_DIR}" "${file}")
-        target_link_libraries("${TARGET}" PRIVATE halide_test)
+        target_link_libraries("${TARGET}" PRIVATE Halide_test)
 
         if (args_EXPECT_FAILURE)
             add_halide_test("${TARGET}" GROUPS ${args_GROUPS} EXPECT_FAILURE)
