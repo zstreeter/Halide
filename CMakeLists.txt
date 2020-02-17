@@ -1,35 +1,34 @@
 cmake_minimum_required(VERSION 3.14)
 project(Halide)
 
-set(CPACK_PACKAGE_VENDOR "Halide")
-set(CPACK_RESOURCE_FILE_LICENSE "${Halide_SOURCE_DIR}/LICENSE.txt")
-set(CPACK_MONOLITHIC_INSTALL OFF)
-if (WIN32)
-    set(CPACK_GENERATOR "ZIP")
-else ()
-    set(CPACK_GENERATOR "TGZ")
+##
+# Set up project-wide properties
+##
+get_property(USE_FOLDERS_WAS_SET GLOBAL PROPERTY USE_FOLDERS SET)
+if (NOT USE_FOLDERS_WAS_SET)
+    set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 endif ()
-# Remove this to get package names that are formatted as
-# ${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CPACK_SYSTEM_NAME}.
-set(CPACK_PACKAGE_FILE_NAME "Halide" CACHE STRING "Name of package created by distrib target")
-include(CPack)
-
-add_subdirectory(dependencies)
-
-set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
     set(CMAKE_OBJECT_PATH_MAX 260)
     message("Windows: setting CMAKE_OBJECT_PATH_MAX to ${CMAKE_OBJECT_PATH_MAX}")
 endif ()
 
-# Export all symbols
+# Export all symbols -- TODO: reevaluate this. We should probably be selective about what we export.
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
+# Require the given C++ standard
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+add_subdirectory(dependencies)
+
+# TODO: why override this?
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
+option(LLVM_USE_SHARED_LLVM_LIBRARY "Use shared versions of LLVM libraries" OFF)
 if (LLVM_USE_SHARED_LLVM_LIBRARY)
     # Since we will be linking to the shared LLVM library,
     # we will get all the transitive dependencies for free automagically.
@@ -72,11 +71,7 @@ if (LLVM_LIBCXX GREATER -1)
     add_link_options(-stdlib=libc++)
 endif ()
 
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
 #option(TARGET_OPENGLCOMPUTE "Include OpenGLCompute target" ON)
-option(LLVM_USE_SHARED_LLVM_LIBRARY "Use shared versions of LLVM libraries" OFF)
 option(HALIDE_USE_CODEMODEL_LARGE "Use the Large LLVM codemodel" OFF)
 
 # Needed for 'make distrib' to properly fill in the .tpl files
@@ -313,3 +308,16 @@ add_custom_target(distrib
 
 add_custom_target(format
                   COMMAND find "${Halide_SOURCE_DIR}/apps" "${Halide_SOURCE_DIR}/src" "${Halide_SOURCE_DIR}/tools" "${Halide_SOURCE_DIR}/test" "${Halide_SOURCE_DIR}/util" "${Halide_SOURCE_DIR}/python_bindings" -name *.cpp -o -name *.h -o -name *.c | xargs ${CLANG}-format -i -style=file)
+
+set(CPACK_PACKAGE_VENDOR "Halide")
+set(CPACK_RESOURCE_FILE_LICENSE "${Halide_SOURCE_DIR}/LICENSE.txt")
+set(CPACK_MONOLITHIC_INSTALL OFF)
+if (WIN32)
+    set(CPACK_GENERATOR "ZIP")
+else ()
+    set(CPACK_GENERATOR "TGZ")
+endif ()
+# Remove this to get package names that are formatted as
+# ${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CPACK_SYSTEM_NAME}.
+set(CPACK_PACKAGE_FILE_NAME "Halide" CACHE STRING "Name of package created by distrib target")
+include(CPack)
