@@ -5,6 +5,11 @@ set_target_properties(Threads::Threads PROPERTIES IMPORTED_GLOBAL TRUE)
 find_package(OpenGL)
 set_target_properties(OpenGL::GL PROPERTIES IMPORTED_GLOBAL TRUE)
 
+find_package(OpenMP)
+if (TARGET OpenMP::OpenMP_CXX)
+    set_target_properties(OpenMP::OpenMP_CXX PROPERTIES IMPORTED_GLOBAL TRUE)
+endif ()
+
 add_subdirectory(clang)
 add_subdirectory(llvm)
 

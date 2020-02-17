@@ -153,12 +153,6 @@ endif ()
 
 add_subdirectory(tools)
 
-# Look for OpenMP
-find_package(OpenMP QUIET)
-if (OPENMP_FOUND)
-    message(STATUS "Found OpenMP")
-endif ()
-
 # For in-tree builds, we need to set the input variables for halide.cmake
 # to specific values, rather than relying on HALIDE_DISTRIB_DIR to be set correctly.
 set(HALIDE_INCLUDE_DIR "${CMAKE_BINARY_DIR}/include")
