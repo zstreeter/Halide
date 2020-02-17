@@ -25,11 +25,6 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_subdirectory(dependencies)
 
-# TODO: why override this?
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${Halide_BINARY_DIR}/lib")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${Halide_BINARY_DIR}/lib")
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${Halide_BINARY_DIR}/bin")
-
 option(LLVM_USE_SHARED_LLVM_LIBRARY "Use shared versions of LLVM libraries" OFF)
 if (LLVM_USE_SHARED_LLVM_LIBRARY)
     # Since we will be linking to the shared LLVM library,
@@ -109,16 +104,6 @@ else ()
     endif ()
 endif ()
 
-add_subdirectory(tools)
-
-# For in-tree builds, we need to set the input variables for halide.cmake
-# to specific values, rather than relying on HALIDE_DISTRIB_DIR to be set correctly.
-set(HALIDE_INCLUDE_DIR "${Halide_BINARY_DIR}/include")
-set(HALIDE_TOOLS_DIR "${Halide_SOURCE_DIR}/tools")
-set(HALIDE_COMPILER_LIB Halide)
-set(HALIDE_DISTRIB_DIR "/bad-path")
-include(halide.cmake)
-
 # -----------------------------------------------------------------------------
 # Option to enable/disable assertions
 # -----------------------------------------------------------------------------
@@ -140,32 +125,10 @@ foreach (build_config Debug Release RelWithDebInfo MinSizeRel)
     endforeach ()
 endforeach ()
 
-# TODO: this is intended to eventually replicate all of the interesting test targets
-#       from our Make build, but not all are implemented yet:
-# TODO(srj): add test_aotcpp_generators support
-# TODO(srj): add test_valgrind variant
-# TODO(srj): add test_avx512 variant
-# TODO(srj): add test_python variant
-# TODO(srj): add test_apps variant
-function(add_halide_test TARGET)
-    set(options EXPECT_FAILURE)
-    set(oneValueArgs WORKING_DIRECTORY)
-    set(multiValueArgs GROUPS)
-    cmake_parse_arguments(args "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
-
-    add_test(NAME ${TARGET}
-             COMMAND ${TARGET}
-             WORKING_DIRECTORY "${args_WORKING_DIRECTORY}")
-
-    set_tests_properties(${TARGET} PROPERTIES LABELS "${args_GROUPS}")
-    if (${args_EXPECT_FAILURE})
-        set_tests_properties(${TARGET} PROPERTIES WILL_FAIL true)
-    endif ()
-endfunction()
-
 add_subdirectory(src)
+add_subdirectory(tools)
 
-option(WITH_TESTS "Build tests" ON)
+option(WITH_TESTS "Build tests" OFF)
 if (WITH_TESTS)
     message(STATUS "Building tests enabled")
     enable_testing()
@@ -174,7 +137,7 @@ else ()
     message(STATUS "Building tests disabled")
 endif ()
 
-option(WITH_APPS "Build apps" ON)
+option(WITH_APPS "Build apps" OFF)
 if (WITH_APPS)
     message(STATUS "Building apps enabled")
     add_subdirectory(apps)
@@ -182,7 +145,7 @@ else ()
     message(STATUS "Building apps disabled")
 endif ()
 
-option(WITH_TUTORIALS "Build tutorials" ON)
+option(WITH_TUTORIALS "Build tutorials" OFF)
 if (WITH_TUTORIALS)
     message(STATUS "Building tutorials enabled")
     add_subdirectory(tutorial)
@@ -198,7 +161,7 @@ else ()
     message(STATUS "Building docs disabled")
 endif ()
 
-option(WITH_UTILS "Build utils" ON)
+option(WITH_UTILS "Build utils" OFF)
 if (WITH_UTILS)
     message(STATUS "Building utils enabled")
     add_subdirectory(util)
@@ -209,7 +172,7 @@ endif ()
 add_subdirectory(packaging)
 
 add_custom_target(distrib
-                  COMMAND ${CMAKE_COMMAND} -E echo "\\'make distrib\\' is not available under CMake. Use \\'make package\\' instead.")
+                  COMMAND ${CMAKE_COMMAND} -E echo "\\'distrib\\' is not available under CMake. Use \\'package\\' instead.")
 
 add_custom_target(format
                   COMMAND find "${Halide_SOURCE_DIR}/apps" "${Halide_SOURCE_DIR}/src" "${Halide_SOURCE_DIR}/tools" "${Halide_SOURCE_DIR}/test" "${Halide_SOURCE_DIR}/util" "${Halide_SOURCE_DIR}/python_bindings" -name *.cpp -o -name *.h -o -name *.c | xargs ${CLANG}-format -i -style=file)
