@@ -139,8 +139,6 @@ set(RUNTIME_HEADER_FILES
 
 add_library(Halide_initmod OBJECT)
 
-set(INITMOD_PREFIX "_initmod_")
-
 set(CXX_WARNING_FLAGS -Wall -Werror -Wno-unused-function -Wcast-qual)
 set(RUNTIME_CXX_FLAGS -O3
     -fno-vectorize -ffreestanding -fno-blocks -fno-exceptions -fno-unwind-tables -fpic
@@ -179,8 +177,8 @@ foreach (i IN LISTS RUNTIME_CPP)
         set(BC_D "initmod.${i}_${j}_debug.bc")
         set(BC "initmod.${i}_${j}.bc")
 
-        set(INITMOD_D "${INITMOD_PREFIX}${i}_${j}_debug.cpp")
-        set(INITMOD "${INITMOD_PREFIX}${i}_${j}.cpp")
+        set(INITMOD_D "_initmod_${i}_${j}_debug.cpp")
+        set(INITMOD "_initmod_${i}_${j}.cpp")
 
         add_custom_command(OUTPUT "${LL_D}"
                            # COMMENT "${SOURCE} -> ${LL_D}"
@@ -231,7 +229,7 @@ foreach (i ${RUNTIME_LL})
     file(TO_NATIVE_PATH "${LL}" LL)
     file(TO_NATIVE_PATH "${BC}" BC)
 
-    set(INITMOD "${INITMOD_PREFIX}${i}.cpp")
+    set(INITMOD "_initmod_${i}.cpp")
 
     add_custom_command(OUTPUT "${BC}"
                        # COMMENT "${LL} -> ${BC}"
@@ -247,7 +245,7 @@ foreach (i ${RUNTIME_LL})
 endforeach ()
 
 foreach (i ${RUNTIME_BC})
-    set(INITMOD "${INITMOD_PREFIX}ptx_${i}.cpp")
+    set(INITMOD "_initmod_ptx_${i}.cpp")
     set(RT_BC "${CMAKE_CURRENT_SOURCE_DIR}/nvidia_libdevice_bitcode/libdevice.${i}.10.bc")
     file(TO_NATIVE_PATH "${RT_BC}" RT_BC)
 
@@ -259,21 +257,21 @@ foreach (i ${RUNTIME_BC})
     target_sources(Halide_initmod PRIVATE ${INITMOD})
 endforeach ()
 
-add_custom_command(OUTPUT "${INITMOD_PREFIX}inlined_c.cpp"
-                   # COMMENT "halide_buffer_t.cpp -> ${INITMOD_PREFIX}inlined_c.cpp"
+add_custom_command(OUTPUT "_initmod_inlined_c.cpp"
+                   # COMMENT "halide_buffer_t.cpp -> _initmod_inlined_c.cpp"
                    DEPENDS "halide_buffer_t.cpp" binary2cpp
-                   COMMAND binary2cpp "halide_internal_initmod_inlined_c" < "${CMAKE_CURRENT_SOURCE_DIR}/halide_buffer_t.cpp" > "${INITMOD_PREFIX}inlined_c.cpp"
+                   COMMAND binary2cpp "halide_internal_initmod_inlined_c" < "${CMAKE_CURRENT_SOURCE_DIR}/halide_buffer_t.cpp" > "_initmod_inlined_c.cpp"
                    )
-target_sources(Halide_initmod PRIVATE "${INITMOD_PREFIX}inlined_c.cpp")
+target_sources(Halide_initmod PRIVATE "_initmod_inlined_c.cpp")
 
 foreach (i ${RUNTIME_HEADER_FILES})
     string(REPLACE "." "_" SYM_NAME "${i}")
-    add_custom_command(OUTPUT "${INITMOD_PREFIX}${SYM_NAME}.cpp"
-                       # COMMENT "${i} -> ${INITMOD_PREFIX}${SYM_NAME}.cpp"
+    add_custom_command(OUTPUT "_initmod_${SYM_NAME}.cpp"
+                       # COMMENT "${i} -> _initmod_${SYM_NAME}.cpp"
                        DEPENDS "${i}" binary2cpp
-                       COMMAND binary2cpp "halide_internal_runtime_header_${SYM_NAME}" < "${CMAKE_CURRENT_SOURCE_DIR}/${i}" > "${INITMOD_PREFIX}${SYM_NAME}.cpp"
+                       COMMAND binary2cpp "halide_internal_runtime_header_${SYM_NAME}" < "${CMAKE_CURRENT_SOURCE_DIR}/${i}" > "_initmod_${SYM_NAME}.cpp"
                        )
-    target_sources(Halide_initmod PRIVATE "${INITMOD_PREFIX}${SYM_NAME}.cpp")
+    target_sources(Halide_initmod PRIVATE "_initmod_${SYM_NAME}.cpp")
 endforeach ()
 
 # TODO: replace with install.
