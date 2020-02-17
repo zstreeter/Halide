@@ -712,6 +712,17 @@ if (NOT MSVC AND NOT LLVM_USE_SHARED_LLVM_LIBRARY)
     target_link_libraries(Halide PUBLIC ${EXTRA_LIBS})
 endif ()
 
+add_library(halide_image_io INTERFACE)
+foreach (LIB IN ITEMS PNG JPEG)
+    if (TARGET ${LIB}::${LIB})
+        target_link_libraries(halide_image_io INTERFACE ${LIB}::${LIB})
+    else ()
+        message(STATUS "${LIB} not found; compiling with -DHALIDE_NO_${LIB}")
+        target_compile_definitions(halide_image_io INTERFACE HALIDE_NO_${LIB})
+    endif ()
+endforeach ()
+add_library(Halide::ImageIO ALIAS halide_image_io)
+
 install(TARGETS Halide
         RUNTIME DESTINATION bin
         LIBRARY DESTINATION bin

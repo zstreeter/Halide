@@ -12,23 +12,6 @@ include(CMakeParseArguments)
 # of HALIDE_TOOLS_DIR, HALIDE_INCLUDE_DIR, and HALIDE_COMPILER_LIB.
 #
 
-set(THREADS_PREFER_PTHREAD_FLAG YES)
-find_package(Threads QUIET)
-
-# Add the include paths and link dependencies for halide_image_io.
-add_library(halide_image_io INTERFACE)
-foreach(LIB IN ITEMS PNG JPEG)
-  find_package(${LIB} QUIET)
-  if(${LIB}_FOUND)
-    message(STATUS "Found ${LIB} version ${${LIB}_VERSION}")
-    target_link_libraries(halide_image_io INTERFACE ${LIB}::${LIB})
-    else()
-    message(STATUS "${LIB} not found; compiling with -DHALIDE_NO_${LIB}")
-    target_compile_definitions(halide_image_io INTERFACE HALIDE_NO_${LIB})
-  endif()
-endforeach()
-add_library(Halide::ImageIO ALIAS halide_image_io)
-
 function(halide_use_image_io TARGET)
   message(DEPRECATION "Use: target_link_libraries(${TARGET} PRIVATE Halide::ImageIO)")
   target_link_libraries(${TARGET} PRIVATE Halide::ImageIO)
