@@ -1,3 +1,11 @@
+# Needed for 'make distrib' to properly fill in the .tpl files
+if (HALIDE_ENABLE_RTTI)
+    set(HALIDE_RTTI_RAW 1)
+else ()
+    set(HALIDE_RTTI_RAW 0)
+endif ()
+
+
 # TODO: the use of glob here is almost certainly brittle if not outright wrong.
 file(GLOB FILES "${Halide_BINARY_DIR}/include/HalideRuntime*.h")
 install(FILES
