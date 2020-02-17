@@ -225,9 +225,9 @@ endforeach ()
 
 foreach (i ${RUNTIME_LL})
     set(LL "${CMAKE_CURRENT_SOURCE_DIR}/${i}.ll")
-    set(BC "${CMAKE_CURRENT_SOURCE_DIR}/initmod.${i}.bc")
     file(TO_NATIVE_PATH "${LL}" LL)
-    file(TO_NATIVE_PATH "${BC}" BC)
+
+    set(BC "initmod.${i}.bc")
 
     set(INITMOD "_initmod_${i}.cpp")
 
