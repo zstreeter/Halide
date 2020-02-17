@@ -83,24 +83,10 @@ endif ()
 
 function(halide_project name folder)
     add_executable("${name}" ${ARGN})
-    if (MSVC)
-        if (NOT HALIDE_ENABLE_RTTI)
-            target_compile_options("${name}" PUBLIC $<$<COMPILE_LANGUAGE:CXX>:/GR- >)
-        endif ()
-    else ()
-        if (NOT HALIDE_ENABLE_RTTI)
-            target_compile_options("${name}" PUBLIC $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>)
-        endif ()
-    endif ()
-    target_link_libraries("${name}" PRIVATE ${HALIDE_COMPILER_LIB} ${CMAKE_DL_LIBS} Threads::Threads)
-    target_include_directories("${name}" PRIVATE "${Halide_SOURCE_DIR}/src")
-    target_include_directories("${name}" PRIVATE "${Halide_SOURCE_DIR}/tools")
+    target_link_libraries("${name}" PRIVATE Halide::Halide ${CMAKE_DL_LIBS} Threads::Threads $<$<CXX_COMPILER_ID:MSVC>:Kernel32>)
     set_target_properties("${name}" PROPERTIES
                           FOLDER "${folder}"
                           ENABLE_EXPORTS True)
-    if (MSVC)
-        target_link_libraries("${name}" PRIVATE Kernel32)
-    endif ()
 endfunction(halide_project)
 
 # Set warnings globally

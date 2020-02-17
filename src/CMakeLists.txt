@@ -345,10 +345,10 @@ add_subdirectory(runtime)
 # TODO: break dependency on this for internal use
 ##
 
-file(TO_NATIVE_PATH "${Halide_BINARY_DIR}/include/" NATIVE_INCLUDE_PATH)
+file(TO_NATIVE_PATH "${Halide_BINARY_DIR}/include/Halide.h" NATIVE_HALIDE_H)
 file(TO_NATIVE_PATH "${Halide_SOURCE_DIR}/LICENSE.txt" NATIVE_LICENSE_PATH)
 add_custom_command(OUTPUT "${Halide_BINARY_DIR}/include/Halide.h"
-                   COMMAND build_halide_h "${NATIVE_LICENSE_PATH}" ${HEADER_FILES} > "${NATIVE_INCLUDE_PATH}Halide.h"
+                   COMMAND build_halide_h "${NATIVE_LICENSE_PATH}" ${HEADER_FILES} > "${NATIVE_HALIDE_H}"
                    WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}"
                    DEPENDS build_halide_h "${Halide_SOURCE_DIR}/LICENSE.txt" ${HEADER_FILES})
 add_custom_target(
@@ -391,6 +391,8 @@ add_dependencies(Halide HalideIncludes)
 
 # TODO: don't depend on headers in binary directory!
 target_include_directories(Halide INTERFACE "${CMAKE_BINARY_DIR}/include")
+target_include_directories(Halide INTERFACE "${Halide_SOURCE_DIR}/tools")
+target_include_directories(Halide PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 
 option(TARGET_OPENCL "Include OpenCL-C target" ON)
 if (TARGET_OPENCL)
@@ -457,6 +459,8 @@ if (NOT MSVC AND NOT LLVM_USE_SHARED_LLVM_LIBRARY)
     string(REPLACE " " ";" EXTRA_LIBS "${EXTRA_LIBS}")  # convert into a list
     target_link_libraries(Halide PRIVATE ${EXTRA_LIBS})
 endif ()
+
+add_library(Halide::Halide ALIAS Halide)
 
 ##
 # Interface target for enabling PNG/JPEG support in Halide
