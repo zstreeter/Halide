@@ -1,5 +1,3 @@
-set(GEN_TEST_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
-
 function(halide_define_aot_test NAME)
     set(options OMIT_DEFAULT_GENERATOR)
     set(oneValueArgs FUNCTION_NAME HALIDE_TARGET)
@@ -7,7 +5,7 @@ function(halide_define_aot_test NAME)
     cmake_parse_arguments(args "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
     set(TARGET "generator_aot_${NAME}")
-    add_executable("${TARGET}" "${GEN_TEST_DIR}/${NAME}_aottest.cpp")
+    add_executable("${TARGET}" "${NAME}_aottest.cpp")
     target_include_directories("${TARGET}" PRIVATE
                                "${CMAKE_SOURCE_DIR}/tools"
                                "${CMAKE_SOURCE_DIR}"
@@ -31,7 +29,8 @@ endfunction(halide_define_aot_test)
 # Find all the files of form "foo_generator.cpp" in test/generator
 # and declare a halide_generator() rule for them. Note that a few
 # have special-cases.
-file(GLOB GENERATOR_SRCS RELATIVE "${GEN_TEST_DIR}" "${GEN_TEST_DIR}/*_generator.cpp")
+# TODO: Don't glob sources!
+file(GLOB GENERATOR_SRCS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "*_generator.cpp")
 foreach (FILE ${GENERATOR_SRCS})
     string(REPLACE "_generator.cpp" "" NAME "${FILE}")
 
@@ -53,43 +52,43 @@ foreach (FILE ${GENERATOR_SRCS})
     foreach (N ${NAMES})
         halide_generator("${N}.generator"
                          GENERATOR_NAME "${N}"
-                         SRCS "${GEN_TEST_DIR}/${NAME}_generator.cpp"
+                         SRCS "${NAME}_generator.cpp"
                          DEPS ${DEPS})
     endforeach ()
 endforeach ()
 
-# Define a nontrivial depedency for external_code.generator
-set(EC32 "${PROJECT_BINARY_DIR}/${PROJECT_NAME}.build/external_code_extern_bitcode_32")
+# Define a nontrivial dependency for external_code.generator
+set(EC32 "external_code_extern_bitcode_32")
 add_custom_command(OUTPUT "${EC32}.bc"
-                   DEPENDS "${GEN_TEST_DIR}/external_code_extern.cpp"
-                   COMMAND clang ${CXX_WARNING_FLAGS} -O3 -c -m32 -target le32-unknown-nacl-unknown -emit-llvm "${GEN_TEST_DIR}/external_code_extern.cpp" -o "${EC32}.bc")
+                   DEPENDS "external_code_extern.cpp"
+                   COMMAND clang ${CXX_WARNING_FLAGS} -O3 -c -m32 -target le32-unknown-nacl-unknown -emit-llvm "${CMAKE_CURRENT_SOURCE_DIR}/external_code_extern.cpp" -o "${EC32}.bc")
 add_custom_command(OUTPUT "${EC32}.cpp"
                    DEPENDS "${EC32}.bc"
                    COMMAND binary2cpp external_code_extern_bitcode_32 < "${EC32}.bc" > "${EC32}.cpp")
 
-set(EC64 "${PROJECT_BINARY_DIR}/${PROJECT_NAME}.build/external_code_extern_bitcode_64")
+set(EC64 "external_code_extern_bitcode_64")
 add_custom_command(OUTPUT "${EC64}.bc"
-                   DEPENDS "${GEN_TEST_DIR}/external_code_extern.cpp"
-                   COMMAND clang ${CXX_WARNING_FLAGS} -O3 -c -m64 -target le64-unknown-unknown-unknown -emit-llvm "${GEN_TEST_DIR}/external_code_extern.cpp" -o "${EC64}.bc")
+                   DEPENDS "external_code_extern.cpp"
+                   COMMAND clang ${CXX_WARNING_FLAGS} -O3 -c -m64 -target le64-unknown-unknown-unknown -emit-llvm "${CMAKE_CURRENT_SOURCE_DIR}/external_code_extern.cpp" -o "${EC64}.bc")
 add_custom_command(OUTPUT "${EC64}.cpp"
                    DEPENDS "${EC64}.bc"
                    COMMAND binary2cpp external_code_extern_bitcode_64 < "${EC64}.bc" > "${EC64}.cpp")
 
-set(ECCPP "${PROJECT_BINARY_DIR}/${PROJECT_NAME}.build/external_code_extern_cpp_source")
+set(ECCPP "external_code_extern_cpp_source")
 add_custom_command(OUTPUT "${ECCPP}.cpp"
-                   DEPENDS "${GEN_TEST_DIR}/external_code_extern.cpp"
-                   COMMAND binary2cpp external_code_extern_cpp_source < "${GEN_TEST_DIR}/external_code_extern.cpp" > "${ECCPP}.cpp")
+                   DEPENDS "external_code_extern.cpp"
+                   COMMAND binary2cpp external_code_extern_cpp_source < "${CMAKE_CURRENT_SOURCE_DIR}/external_code_extern.cpp" > "${ECCPP}.cpp")
 
 add_library(external_code_generator_deps "${EC32}.cpp" "${EC64}.cpp" "${ECCPP}.cpp")
 
 # ------ Generator tests for just-in-time mode: ------
 # Find all the files of form "foo_jittest.cpp" in test/generator
 # and declare a rule for them, each of which depends on foo.generator.
-file(GLOB JITTEST_SRCS RELATIVE "${GEN_TEST_DIR}" "${GEN_TEST_DIR}/*_jittest.cpp")
+file(GLOB JITTEST_SRCS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "*_jittest.cpp")
 foreach (FILE ${JITTEST_SRCS})
     string(REPLACE "_jittest.cpp" "" NAME "${FILE}")
     set(TARGET "generator_jit_${NAME}")
-    halide_project("${TARGET}" "generator" "${GEN_TEST_DIR}/${FILE}")
+    halide_project("${TARGET}" "generator" "${FILE}")
     target_link_libraries("${TARGET}" PRIVATE "${NAME}.generator")
     add_halide_test("${TARGET}"
                     GROUPS generator travis)
@@ -100,12 +99,12 @@ endforeach ()
 # and declare a rule for them, each of which depends on foo.generator.
 # Note that there are many special cases.
 # TODO(srj)
-# file(GLOB JITTEST_SRCS RELATIVE "${GEN_TEST_DIR}" "${GEN_TEST_DIR}/*_aottest.cpp")
+# file(GLOB JITTEST_SRCS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/*_aottest.cpp")
 # foreach(FILE ${JITTEST_SRCS})
 #   string(REPLACE "_aottest.cpp" "" NAME "${FILE}")
 #   set(TARGET )
 
-#   add_executable("generator_aot_${NAME}" "${GEN_TEST_DIR}/${FILE}")
+#   add_executable("generator_aot_${NAME}" "${CMAKE_CURRENT_SOURCE_DIR}/${FILE}")
 #   target_include_directories("generator_aot_${NAME}" PRIVATE
 #                              "${CMAKE_SOURCE_DIR}"
 #                              "${CMAKE_SOURCE_DIR}/tools"
@@ -166,8 +165,7 @@ halide_define_aot_test(user_context
 halide_define_aot_test(user_context_insanity
                        HALIDE_TARGET_FEATURES user_context)
 
-add_library(cxx_mangling_externs
-            "${GEN_TEST_DIR}/cxx_mangling_externs.cpp")
+add_library(cxx_mangling_externs cxx_mangling_externs.cpp)
 
 halide_define_aot_test(cxx_mangling
                        HALIDE_TARGET_FEATURES c_plus_plus_name_mangling
@@ -274,7 +272,7 @@ target_link_libraries(generator_aot_autograd PUBLIC autograd_grad)
 # Needs an extra library from this Generator
 halide_define_aot_test(alias)
 halide_library(alias_with_offset_42
-               SRCS ${GEN_TEST_DIR}/alias_generator.cpp
+               SRCS alias_generator.cpp
                GENERATOR_NAME alias_with_offset_42)
 target_link_libraries(generator_aot_alias PUBLIC alias_with_offset_42)
 
@@ -282,8 +280,7 @@ halide_define_aot_test(tiled_blur)
 halide_library_from_generator(blur2x2)
 target_link_libraries(generator_aot_tiled_blur PUBLIC blur2x2)
 
-add_library(cxx_mangling_define_extern_externs
-            "${GEN_TEST_DIR}/cxx_mangling_define_extern_externs.cpp")
+add_library(cxx_mangling_define_extern_externs cxx_mangling_define_extern_externs.cpp)
 target_link_libraries(cxx_mangling_define_extern_externs PUBLIC cxx_mangling_externs cxx_mangling)
 
 halide_define_aot_test(cxx_mangling_define_extern
