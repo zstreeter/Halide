@@ -317,7 +317,7 @@ endfunction()
 
 # Get (and lazily create) the generated-files directory for Generators.
 function(_halide_genfiles_dir NAME OUTVAR)
-    set(GENFILES_DIR "${CMAKE_BINARY_DIR}/${CMAKE_CFG_INTDIR}/genfiles/${NAME}")
+    set(GENFILES_DIR "${Halide_BINARY_DIR}/${CMAKE_CFG_INTDIR}/genfiles/${NAME}")
     file(MAKE_DIRECTORY "${GENFILES_DIR}")
     set(${OUTVAR} "${GENFILES_DIR}" PARENT_SCOPE)
 endfunction()
