@@ -1,143 +1,5 @@
 include(CheckCXXCompilerFlag)
 
-set(RUNTIME_CPP
-    aarch64_cpu_features
-    alignment_128
-    alignment_32
-    allocation_cache
-    alignment_64
-    android_clock
-    android_host_cpu_count
-    android_io
-    arm_cpu_features
-    halide_buffer_t
-    cache
-    can_use_target
-    cuda
-    d3d12compute
-    destructors
-    device_interface
-    errors
-    fake_get_symbol
-    fake_thread_pool
-    float16_t
-    fuchsia_clock
-    fuchsia_host_cpu_count
-    fuchsia_yield
-    gpu_device_selection
-    hexagon_cache_allocator
-    hexagon_cpu_features
-    hexagon_dma
-    hexagon_dma_pool
-    hexagon_host
-    ios_io
-    linux_clock
-    linux_host_cpu_count
-    linux_yield
-    matlab
-    metadata
-    metal
-    metal_objc_arm
-    metal_objc_x86
-    mingw_math
-    mips_cpu_features
-    module_aot_ref_count
-    module_jit_ref_count
-    msan
-    msan_stubs
-    opencl
-    opengl
-    openglcompute
-    opengl_egl_context
-    opengl_glx_context
-    osx_clock
-    osx_get_symbol
-    osx_host_cpu_count
-    osx_opengl_context
-    osx_yield
-    posix_abort
-    posix_allocator
-    posix_clock
-    posix_error_handler
-    posix_get_symbol
-    posix_io
-    posix_print
-    posix_threads
-    posix_threads_tsan
-    powerpc_cpu_features
-    prefetch
-    profiler
-    profiler_inlined
-    pseudostack
-    qurt_allocator
-    qurt_hvx
-    qurt_hvx_vtcm
-    qurt_init_fini
-    qurt_threads
-    qurt_threads_tsan
-    qurt_yield
-    riscv_cpu_features
-    runtime_api
-    ssp
-    to_string
-    trace_helper
-    tracing
-    wasm_cpu_features
-    windows_abort
-    windows_clock
-    windows_cuda
-    windows_get_symbol
-    windows_io
-    windows_opencl
-    windows_profiler
-    windows_threads
-    windows_threads_tsan
-    windows_yield
-    write_debug_image
-    x86_cpu_features
-    )
-
-set(RUNTIME_LL
-    aarch64
-    arm
-    arm_no_neon
-    hvx_64
-    hvx_128
-    mips
-    posix_math
-    powerpc
-    ptx_dev
-    wasm_math
-    win32_math
-    x86
-    x86_avx
-    x86_avx2
-    x86_sse41
-    d3d12_abi_patch_64
-    )
-
-set(RUNTIME_BC
-    compute_20
-    compute_30
-    compute_35
-    )
-
-set(RUNTIME_HEADER_FILES
-    HalideRuntime.h
-    HalideRuntimeCuda.h
-    HalideRuntimeHexagonDma.h
-    HalideRuntimeHexagonHost.h
-    HalideRuntimeOpenCL.h
-    HalideRuntimeMetal.h
-    HalideRuntimeOpenGL.h
-    HalideRuntimeOpenGLCompute.h
-    HalideRuntimeD3D12Compute.h
-    HalideRuntimeQurt.h
-    HalideBuffer.h
-    HalidePyTorchHelpers.h
-    HalidePyTorchCudaHelpers.h
-    )
-
 # The externally-visible header files that go into making Halide.h.
 # Don't include anything here that includes llvm headers.
 # Keep this list sorted in alphabetical order.
@@ -473,160 +335,26 @@ set(SOURCE_FILES
     WrapCalls.cpp
     )
 
-set(RUNTIME_DIR "${CMAKE_CURRENT_SOURCE_DIR}/runtime")
-file(TO_NATIVE_PATH "${RUNTIME_DIR}/" NATIVE_RUNTIME_DIR)
-file(TO_NATIVE_PATH "${CMAKE_CFG_INTDIR}/" NATIVE_INT_DIR)
+##
+# Build and import the runtime.
+##
+add_subdirectory(runtime)
 
-# ./ seems to confuse cmake on linux
-if ("${NATIVE_INT_DIR}" STREQUAL "./")
-    set(NATIVE_INT_DIR "")
-endif ()
+##
+# Build the Halide mono-header
+# TODO: break dependency on this for internal use
+##
 
-# Commands to build initial module objects.
-file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/${PROJECT_NAME}.build")
-
-# Note: we don't want static locals to get thread synchronization stuff.
-set(INITMOD_PREFIX "_initmod_")
-set(INITIAL_MODULES)
-
-if (MSVC)
-    # -g produces dwarf debugging info, which is not useful on windows
-    #  (and fails to compile due to llvm bug 15393)
-    set(RUNTIME_DEBUG_FLAG "")
-else ()
-    set(RUNTIME_DEBUG_FLAG "-g")
-endif ()
-
-function(add_runtime_modules TARGET_RUNTIME_FILES TARGET_RUNTIME_DIR)
-    set(CXX_WARNING_FLAGS -Wall -Werror -Wno-unused-function -Wcast-qual)
-    set(RUNTIME_CXX_FLAGS -O3 -fno-vectorize -ffreestanding -fno-blocks -fno-exceptions -fno-unwind-tables -fpic -fno-threadsafe-statics)
-    foreach (i ${TARGET_RUNTIME_FILES})
-        foreach (j IN ITEMS 32 64)
-            if (${j} EQUAL 32)
-                if (${i} MATCHES "windows_.*")
-                    # win32 uses the stdcall calling convention, which is x86-specific
-                    set(TARGET "i386-unknown-unknown-unknown")
-                else ()
-                    # (The 'nacl' is a red herring. This is just a generic 32-bit little-endian target.)
-                    set(TARGET "le32-unknown-nacl-unknown")
-                endif ()
-            else ()
-                # generic 64-bit code
-                set(TARGET "le64-unknown-unknown-unknown")
-            endif ()
-            set(SOURCE "${TARGET_RUNTIME_DIR}${i}.cpp")
-            set(LL_D "${PROJECT_BINARY_DIR}/${PROJECT_NAME}.build/${NATIVE_INT_DIR}initmod.${i}_${j}_debug.ll")
-            set(LL "${PROJECT_BINARY_DIR}/${PROJECT_NAME}.build/${NATIVE_INT_DIR}initmod.${i}_${j}.ll")
-            set(BC_D "${PROJECT_BINARY_DIR}/${PROJECT_NAME}.build/${NATIVE_INT_DIR}initmod.${i}_${j}_debug.bc")
-            set(BC "${PROJECT_BINARY_DIR}/${PROJECT_NAME}.build/${NATIVE_INT_DIR}initmod.${i}_${j}.bc")
-            set(INITMOD_D "${INITMOD_PREFIX}${i}_${j}_debug.cpp")
-            set(INITMOD "${INITMOD_PREFIX}${i}_${j}.cpp")
-
-            add_custom_command(OUTPUT "${LL_D}"
-                               # COMMENT "${SOURCE} -> ${LL_D}"
-                               DEPENDS "${SOURCE}"
-                               VERBATIM
-                               COMMAND clang ${CXX_WARNING_FLAGS} ${RUNTIME_DEBUG_FLAG} -DDEBUG_RUNTIME ${RUNTIME_CXX_FLAGS} -m${j} -target ${TARGET} -I${TARGET_RUNTIME_DIR} -DCOMPILING_HALIDE_RUNTIME -DLLVM_VERSION=${LLVM_VERSION} -DBITS_${j} -emit-llvm -S ${SOURCE} -o ${LL_D}
-                               # Make sure that the output of this command also depends
-                               # on the header files that ${SOURCE} uses
-                               # FIXME: Only works for makefile generator
-                               IMPLICIT_DEPENDS CXX "${SOURCE}"
-                               )
-            add_custom_command(OUTPUT "${LL}"
-                               # COMMENT "${SOURCE} -> ${LL}"
-                               DEPENDS "${SOURCE}"
-                               VERBATIM
-                               COMMAND clang ${CXX_WARNING_FLAGS} ${RUNTIME_CXX_FLAGS} -m${j} -target ${TARGET} -I${TARGET_RUNTIME_DIR} -DCOMPILING_HALIDE_RUNTIME -DLLVM_VERSION=${LLVM_VERSION} -DBITS_${j} -emit-llvm -S ${SOURCE} -o ${LL}
-                               )
-
-            add_custom_command(OUTPUT "${BC_D}"
-                               # COMMENT "${LL_D} -> ${BC_D}"
-                               DEPENDS "${LL_D}"
-                               COMMAND llvm-as "${LL_D}" -o "${BC_D}"
-                               )
-            add_custom_command(OUTPUT "${BC}"
-                               # COMMENT "${LL} -> ${BC}"
-                               DEPENDS "${LL}"
-                               COMMAND llvm-as "${LL}" -o "${BC}"
-                               )
-
-            add_custom_command(OUTPUT "${INITMOD_D}"
-                               # COMMENT "${BC_D} -> ${INITMOD_D}"
-                               DEPENDS "${BC_D}" binary2cpp
-                               COMMAND binary2cpp "halide_internal_initmod_${i}_${j}_debug" < "${BC_D}" > "${INITMOD_D}"
-                               )
-            add_custom_command(OUTPUT "${INITMOD}"
-                               # COMMENT "${BC} -> ${INITMOD}"
-                               DEPENDS "${BC}" binary2cpp
-                               COMMAND binary2cpp "halide_internal_initmod_${i}_${j}" < "${BC}" > "${INITMOD}"
-                               )
-            list(APPEND INITIAL_MODULES ${INITMOD})
-            list(APPEND INITIAL_MODULES ${INITMOD_D})
-        endforeach ()
-    endforeach ()
-
-    set(INITIAL_MODULES "${INITIAL_MODULES}" PARENT_SCOPE)
-endfunction(add_runtime_modules)
-
-add_runtime_modules("${RUNTIME_CPP}" "${NATIVE_RUNTIME_DIR}")
-
-foreach (i ${RUNTIME_LL})
-    set(LL "${NATIVE_RUNTIME_DIR}${i}.ll")
-    set(BC "${PROJECT_BINARY_DIR}/${PROJECT_NAME}.build/${NATIVE_INT_DIR}initmod.${i}.bc")
-    set(INITMOD "${INITMOD_PREFIX}${i}.cpp")
-    add_custom_command(OUTPUT "${BC}"
-                       # COMMENT "${LL} -> ${BC}"
-                       DEPENDS "${LL}"
-                       COMMAND llvm-as "${LL}" -o "${BC}"
-                       )
-    add_custom_command(OUTPUT "${INITMOD}"
-                       # COMMENT "${BC} -> ${INITMOD}"
-                       DEPENDS "${BC}" binary2cpp
-                       COMMAND binary2cpp "halide_internal_initmod_${i}_ll" < "${BC}" > "${INITMOD}"
-                       )
-    list(APPEND INITIAL_MODULES "${INITMOD}")
-endforeach ()
-foreach (i ${RUNTIME_BC})
-    set(INITMOD "${INITMOD_PREFIX}ptx_${i}.cpp")
-    add_custom_command(OUTPUT "${INITMOD}"
-                       # COMMENT "Building initial module ptx_${i}..."
-                       DEPENDS binary2cpp
-                       COMMAND binary2cpp "halide_internal_initmod_ptx_${i}_ll" < "${NATIVE_RUNTIME_DIR}nvidia_libdevice_bitcode/libdevice.${i}.10.bc" > "${INITMOD}"
-                       VERBATIM)
-    list(APPEND INITIAL_MODULES "${INITMOD}")
-endforeach ()
-
-add_custom_command(OUTPUT "${INITMOD_PREFIX}inlined_c.cpp"
-                   # COMMENT "halide_buffer_t.cpp -> ${INITMOD_PREFIX}inlined_c.cpp"
-                   DEPENDS "${NATIVE_RUNTIME_DIR}halide_buffer_t.cpp" binary2cpp
-                   COMMAND binary2cpp "halide_internal_initmod_inlined_c" < "${NATIVE_RUNTIME_DIR}halide_buffer_t.cpp" > "${INITMOD_PREFIX}inlined_c.cpp"
-                   )
-list(APPEND INITIAL_MODULES "${INITMOD_PREFIX}inlined_c.cpp")
-
-foreach (i ${RUNTIME_HEADER_FILES})
-    string(REPLACE "." "_" SYM_NAME "${i}")
-    add_custom_command(OUTPUT "${INITMOD_PREFIX}${SYM_NAME}.cpp"
-                       # COMMENT "${i} -> ${INITMOD_PREFIX}${SYM_NAME}.cpp"
-                       DEPENDS "${NATIVE_RUNTIME_DIR}${i}" binary2cpp
-                       COMMAND binary2cpp "halide_internal_runtime_header_${SYM_NAME}" < "${NATIVE_RUNTIME_DIR}${i}" > "${INITMOD_PREFIX}${SYM_NAME}.cpp"
-                       )
-    list(APPEND INITIAL_MODULES "${INITMOD_PREFIX}${SYM_NAME}.cpp")
-endforeach ()
-
-file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/include")
-file(TO_NATIVE_PATH "${CMAKE_BINARY_DIR}/include/" NATIVE_INCLUDE_PATH)
-add_custom_command(OUTPUT "${CMAKE_BINARY_DIR}/include/Halide.h"
-                   COMMAND build_halide_h "${CMAKE_CURRENT_SOURCE_DIR}/../LICENSE.txt" ${HEADER_FILES} > "${NATIVE_INCLUDE_PATH}Halide.h"
+file(MAKE_DIRECTORY "${Halide_BINARY_DIR}/include")
+file(TO_NATIVE_PATH "${Halide_BINARY_DIR}/include/" NATIVE_INCLUDE_PATH)
+add_custom_command(OUTPUT "${Halide_BINARY_DIR}/include/Halide.h"
+                   COMMAND build_halide_h "${Halide_SOURCE_DIR}/LICENSE.txt" ${HEADER_FILES} > "${NATIVE_INCLUDE_PATH}Halide.h"
                    WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}"
-                   DEPENDS build_halide_h "${CMAKE_CURRENT_SOURCE_DIR}/../LICENSE.txt" ${HEADER_FILES})
+                   DEPENDS build_halide_h "${Halide_SOURCE_DIR}/LICENSE.txt" ${HEADER_FILES})
 add_custom_target(
         HalideIncludes
         ALL
         DEPENDS "${CMAKE_BINARY_DIR}/include/Halide.h")
-
-foreach (i ${RUNTIME_HEADER_FILES})
-    configure_file(runtime/${i} "${CMAKE_BINARY_DIR}/include" COPYONLY)
-endforeach ()
 
 ##
 # Define the Halide library target.
@@ -643,8 +371,13 @@ endif ()
 add_library(Halide ${HALIDE_LIBRARY_TYPE}
             ${SOURCE_FILES}
             ${HEADER_FILES}
-            ${INITIAL_MODULES}
             )
+
+target_link_libraries(Halide PRIVATE Halide_initmod)
+
+##
+# Set definitions and compiler flags
+##
 
 # We could expose the /MP flag to all targets, but that might end up saturating the build
 # since multiple MSBuild projects might get built in parallel, each of which compiling their
@@ -658,8 +391,6 @@ add_dependencies(Halide HalideIncludes)
 
 # TODO: don't depend on headers in binary directory!
 target_include_directories(Halide INTERFACE "${CMAKE_BINARY_DIR}/include")
-
-# Set definitions and compiler flags
 
 option(TARGET_OPENCL "Include OpenCL-C target" ON)
 if (TARGET_OPENCL)
@@ -727,6 +458,10 @@ if (NOT MSVC AND NOT LLVM_USE_SHARED_LLVM_LIBRARY)
     target_link_libraries(Halide PRIVATE ${EXTRA_LIBS})
 endif ()
 
+##
+# Interface target for enabling PNG/JPEG support in Halide
+##
+
 add_library(halide_image_io INTERFACE)
 foreach (LIB IN ITEMS PNG JPEG)
     if (TARGET ${LIB}::${LIB})
@@ -737,6 +472,10 @@ foreach (LIB IN ITEMS PNG JPEG)
     endif ()
 endforeach ()
 add_library(Halide::ImageIO ALIAS halide_image_io)
+
+##
+# Install and export targets.
+##
 
 install(TARGETS Halide
         RUNTIME DESTINATION bin
