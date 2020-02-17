@@ -78,15 +78,6 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 #option(TARGET_OPENGLCOMPUTE "Include OpenGLCompute target" ON)
 option(LLVM_USE_SHARED_LLVM_LIBRARY "Use shared versions of LLVM libraries" OFF)
 option(HALIDE_USE_CODEMODEL_LARGE "Use the Large LLVM codemodel" OFF)
-option(HALIDE_SHARED_LIBRARY "Build as a shared library" ON)
-
-if (HALIDE_SHARED_LIBRARY)
-    set(HALIDE_LIBRARY_TYPE SHARED)
-    message(STATUS "Building Halide as a shared library")
-else ()
-    set(HALIDE_LIBRARY_TYPE STATIC)
-    message(STATUS "Building Halide as a static library")
-endif ()
 
 # Needed for 'make distrib' to properly fill in the .tpl files
 if (HALIDE_ENABLE_RTTI)

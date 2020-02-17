@@ -628,6 +628,18 @@ foreach (i ${RUNTIME_HEADER_FILES})
     configure_file(runtime/${i} "${CMAKE_BINARY_DIR}/include" COPYONLY)
 endforeach ()
 
+##
+# Define the Halide library target.
+##
+option(HALIDE_SHARED_LIBRARY "Build as a shared library" ON)
+if (HALIDE_SHARED_LIBRARY)
+    set(HALIDE_LIBRARY_TYPE SHARED)
+    message(STATUS "Building Halide as a shared library")
+else ()
+    set(HALIDE_LIBRARY_TYPE STATIC)
+    message(STATUS "Building Halide as a static library")
+endif ()
+
 add_library(Halide ${HALIDE_LIBRARY_TYPE}
             ${SOURCE_FILES}
             ${HEADER_FILES}
