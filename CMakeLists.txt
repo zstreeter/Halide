@@ -72,7 +72,6 @@ if (LLVM_LIBCXX GREATER -1)
 endif ()
 
 #option(TARGET_OPENGLCOMPUTE "Include OpenGLCompute target" ON)
-option(HALIDE_USE_CODEMODEL_LARGE "Use the Large LLVM codemodel" OFF)
 
 # Needed for 'make distrib' to properly fill in the .tpl files
 if (HALIDE_ENABLE_RTTI)
@@ -112,9 +111,6 @@ if (NOT MSVC)
     if (HALIDE_ENABLE_EXCEPTIONS)
         add_compile_options(-DWITH_EXCEPTIONS)
     endif ()
-    if (HALIDE_USE_CODEMODEL_LARGE)
-        add_compile_options(-DHALIDE_USE_CODEMODEL_LARGE)
-    endif ()
 else ()
     add_compile_options(/W3)
     add_compile_options(/wd4018)  # disable "signed/unsigned mismatch"
@@ -126,9 +122,6 @@ else ()
     endif ()
     if (HALIDE_ENABLE_EXCEPTIONS)
         add_compile_options(/DWITH_EXCEPTIONS)
-    endif ()
-    if (HALIDE_USE_CODEMODEL_LARGE)
-        add_compile_options(/DHALIDE_USE_CODEMODEL_LARGE)
     endif ()
 endif ()
 

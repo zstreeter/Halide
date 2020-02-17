@@ -414,6 +414,11 @@ if (TARGET_D3D12COMPUTE)
     target_compile_definitions(Halide PRIVATE WITH_D3D12)
 endif ()
 
+option(HALIDE_USE_CODEMODEL_LARGE "Use the Large LLVM codemodel" OFF)
+if (HALIDE_USE_CODEMODEL_LARGE)
+    target_compile_definitions(Halide PRIVATE HALIDE_USE_CODEMODEL_LARGE)
+endif ()
+
 target_compile_definitions(Halide PRIVATE COMPILING_HALIDE)
 if (NOT LLVM_ENABLE_ASSERTIONS)
     target_compile_definitions(Halide PRIVATE NDEBUG)
