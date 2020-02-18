@@ -1,65 +1,8 @@
-## TODO: the use of glob here is almost certainly brittle if not outright wrong.
-#file(GLOB FILES "${Halide_BINARY_DIR}/include/HalideRuntime*.h")
-#install(FILES
-#        "${Halide_BINARY_DIR}/include/Halide.h"
-#        "${Halide_BINARY_DIR}/include/HalideBuffer.h"
-#        "${Halide_BINARY_DIR}/include/HalidePyTorchHelpers.h"
-#        "${Halide_BINARY_DIR}/include/HalidePyTorchCudaHelpers.h"
-#        ${FILES}
-#        DESTINATION include)
-#
-#install(DIRECTORY tutorial
-#        DESTINATION .
-#        FILES_MATCHING
-#        PATTERN "*.cpp"
-#        PATTERN "*.h"
-#        PATTERN "lesson_*.sh"
-#        PATTERN "*.gif"
-#        PATTERN "*.jpg"
-#        PATTERN "*.mp4"
-#        PATTERN "*.png")
-#
-## ---- Tools
-#install(FILES
-#        tools/mex_halide.m
-#        tools/GenGen.cpp
-#        tools/RunGen.h
-#        tools/RunGenMain.cpp
-#        tools/halide_benchmark.h
-#        tools/halide_image.h
-#        tools/halide_image_io.h
-#        tools/halide_image_info.h
-#        tools/halide_malloc_trace.h
-#        tools/halide_trace_config.h
-#        DESTINATION tools)
-#
-## ---- README
-#install(FILES
-#        CODE_OF_CONDUCT.md
-#        README_cmake.md
-#        README.md
-#        README_rungen.md
-#        README_webassembly.md
-#        DESTINATION .)
-#
-## ---- halide.cmake
-#install(FILES halide.cmake DESTINATION .)
-#
-## ---- halide_config
-#file(GLOB FILES "${Halide_SOURCE_DIR}/tools/halide_config.*.tpl")
-#foreach (F ${FILES})
-#    get_filename_component(FNAME "${F}" NAME)  # Extract filename
-#    string(REGEX REPLACE "\\.tpl$" "" FNAME "${FNAME}")  # Strip .tpl extension
-#    configure_file("${F}" "${Halide_BINARY_DIR}/${FNAME}" @ONLY)
-#    install(FILES "${Halide_BINARY_DIR}/${FNAME}"
-#            DESTINATION .)
-#endforeach ()
+include(GNUInstallDirs)
 
 ##
 # Main library exports
 ##
-
-include(GNUInstallDirs)
 
 install(TARGETS Halide
         EXPORT Halide
@@ -69,13 +12,14 @@ install(TARGETS Halide
 
         LIBRARY
         DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        NAMELINK_SKIP
         COMPONENT Halide_Runtime
         NAMELINK_COMPONENT Halide_Development
 
         ARCHIVE
         DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        COMPONENT Halide_Development)
+        COMPONENT Halide_Development
+
+        INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 install(TARGETS Halide_ImageIO
         EXPORT Halide)
@@ -83,6 +27,56 @@ install(TARGETS Halide_ImageIO
 install(EXPORT Halide
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Halide
         NAMESPACE Halide::)
+
+install(DIRECTORY ${Halide_BINARY_DIR}/include/ TYPE INCLUDE FILES_MATCHING PATTERN "include/*.h")
+
+##
+# READMEs and other top-level documentation
+##
+
+install(FILES
+        ${Halide_SOURCE_DIR}/CODE_OF_CONDUCT.md
+        ${Halide_SOURCE_DIR}/README_cmake.md
+        ${Halide_SOURCE_DIR}/README.md
+        ${Halide_SOURCE_DIR}/README_rungen.md
+        ${Halide_SOURCE_DIR}/README_webassembly.md
+        TYPE DATA)
+
+##
+# Tools
+##
+
+install(DIRECTORY ${Halide_SOURCE_DIR}/tools
+        TYPE DATA
+        FILES_MATCHING
+        PATTERN "*.h"
+        PATTERN "*.cpp"
+        PATTERN "*.m")
+
+##
+# Tutorial
+##
+
+install(DIRECTORY ${Halide_SOURCE_DIR}/tutorial
+        TYPE DATA
+        FILES_MATCHING
+        PATTERN "*.cpp"
+        PATTERN "*.h"
+        PATTERN "lesson_*.sh"
+        PATTERN "*.gif"
+        PATTERN "*.jpg"
+        PATTERN "*.mp4"
+        PATTERN "*.png")
+
+##
+# Documentation
+##
+
+# See /doc/CMakeLists.txt. This way, special install logic isn't needed.
+
+##
+# Actual packaging
+##
 
 set(CPACK_PACKAGE_VENDOR "Halide")
 set(CPACK_RESOURCE_FILE_LICENSE "${Halide_SOURCE_DIR}/LICENSE.txt")

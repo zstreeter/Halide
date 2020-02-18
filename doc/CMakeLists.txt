@@ -16,7 +16,6 @@ set(DOXYGEN_HIDE_FRIEND_COMPOUNDS YES)
 set(DOXYGEN_HIDE_IN_BODY_DOCS YES)
 set(DOXYGEN_HIDE_UNDOC_CLASSES YES)
 set(DOXYGEN_HIDE_UNDOC_MEMBERS YES)
-set(DOXYGEN_HTML_OUTPUT .)
 set(DOXYGEN_JAVADOC_AUTOBRIEF YES)
 set(DOXYGEN_QT_AUTOBRIEF YES)
 set(DOXYGEN_QUIET YES)
@@ -30,4 +29,13 @@ set(DOXYGEN_STRIP_CODE_COMMENTS NO)
 doxygen_add_docs(doc
                  "${Halide_SOURCE_DIR}/src"
                  "${Halide_SOURCE_DIR}/test"
+                 ALL
                  COMMENT "Generate HTML documentation")
+
+##
+# Installation
+##
+
+include(GNUInstallDirs)
+set(CMAKE_INSTALL_DOCDIR ${CMAKE_INSTALL_DATAROOTDIR}/doc/${PROJECT_NAME})
+install(DIRECTORY ${Halide_BINARY_DIR}/doc/html/ TYPE DOC)
