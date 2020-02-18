@@ -21,6 +21,7 @@ function(add_halide_test TARGET)
 endfunction()
 
 function(halide_project name folder)
+    message(DEPRECATION "Link to Halide::Halide and only enable exports if needed.")
     add_executable("${name}" ${ARGN})
     target_link_libraries("${name}" PRIVATE Halide::Halide ${CMAKE_DL_LIBS} Threads::Threads $<$<CXX_COMPILER_ID:MSVC>:Kernel32>)
     set_target_properties("${name}" PROPERTIES

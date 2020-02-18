@@ -1,12 +1,17 @@
+##
+# Common test infrastructure
+##
+
+include(HalideTestHelpers)
+
+# TODO: move this to helpers file.
+
 # Add an OBJECT (not static) library to convert abort calls into exit(1).
 add_library(Halide_expect_abort OBJECT common/expect_abort.cpp)
 
 # Capture common halide test features in a single target.
 add_library(Halide_test INTERFACE)
-target_include_directories(Halide_test INTERFACE
-                           "${HALIDE_INCLUDE_DIR}"
-                           "${Halide_SOURCE_DIR}" # TODO: break this dependency.
-                           common)
+target_include_directories(Halide_test INTERFACE common)
 
 # Tests are built with the equivalent of OPTIMIZE_FOR_BUILD_TIME (-O0 or /Od).
 # Also allow tests, via conditional compilation, to use the entire
@@ -46,7 +51,12 @@ function(tests)
     set(TEST_NAMES "${TEST_NAMES}" PARENT_SCOPE)
 endfunction(tests)
 
-halide_project(_test_internal internal internal.cpp)
+##
+# Create test categories
+##
+
+add_executable(_test_internal internal.cpp)
+target_link_libraries(_test_internal PRIVATE Halide::Halide)
 target_include_directories(_test_internal PRIVATE "${Halide_SOURCE_DIR}/src")
 add_halide_test(_test_internal GROUPS internal)
 
