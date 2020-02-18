@@ -25,7 +25,7 @@ if (WITH_TEST_ERROR)
     add_subdirectory(error)
 endif ()
 
-option(WITH_TEST_WARNING "Build warning tests" OFF)
+option(WITH_TEST_WARNING "Build warning tests" ON)
 if (WITH_TEST_WARNING)
     add_subdirectory(warning)
 endif ()
