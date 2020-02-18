@@ -35,7 +35,7 @@ if (WITH_TEST_PERFORMANCE)
     add_subdirectory(performance)
 endif ()
 
-option(WITH_TEST_OPENGL "Build OpenGL tests" OFF)
+option(WITH_TEST_OPENGL "Build OpenGL tests" ON)
 if (WITH_TEST_OPENGL)
     add_subdirectory(opengl)
 endif ()
