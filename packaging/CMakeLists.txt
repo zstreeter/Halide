@@ -24,26 +24,9 @@
 #        DESTINATION tools)
 #
 ## ---- README
-#install(FILES
-#        CODE_OF_CONDUCT.md
-#        README_cmake.md
-#        README.md
-#        README_rungen.md
-#        README_webassembly.md
-#        DESTINATION .)
+
 #
-## ---- halide.cmake
-#install(FILES halide.cmake DESTINATION .)
-#
-## ---- halide_config
-#file(GLOB FILES "${Halide_SOURCE_DIR}/tools/halide_config.*.tpl")
-#foreach (F ${FILES})
-#    get_filename_component(FNAME "${F}" NAME)  # Extract filename
-#    string(REGEX REPLACE "\\.tpl$" "" FNAME "${FNAME}")  # Strip .tpl extension
-#    configure_file("${F}" "${Halide_BINARY_DIR}/${FNAME}" @ONLY)
-#    install(FILES "${Halide_BINARY_DIR}/${FNAME}"
-#            DESTINATION .)
-#endforeach ()
+
 
 ##
 # Main library exports
@@ -78,12 +61,24 @@ install(EXPORT Halide
 install(DIRECTORY ${Halide_BINARY_DIR}/include/ TYPE INCLUDE FILES_MATCHING PATTERN "include/*.h")
 
 ##
-# Documentation
+# READMEs and other top-level documentation
 ##
 
-# TODO: install docs.
-#include(GNUInstallDirs)
-#set(CMAKE_INSTALL_DOCDIR ${CMAKE_INSTALL_DATAROOTDIR}/doc/${PROJECT_NAME})
+install(FILES
+        ${Halide_SOURCE_DIR}/CODE_OF_CONDUCT.md
+        ${Halide_SOURCE_DIR}/README_cmake.md
+        ${Halide_SOURCE_DIR}/README.md
+        ${Halide_SOURCE_DIR}/README_rungen.md
+        ${Halide_SOURCE_DIR}/README_webassembly.md
+        TYPE DATA)
+
+##
+# Installation
+##
+
+# TODO: make this depend on the documentation actually being built.
+set(CMAKE_INSTALL_DOCDIR ${CMAKE_INSTALL_DATAROOTDIR}/doc/${PROJECT_NAME})
+install(DIRECTORY ${Halide_BINARY_DIR}/doc/html/ TYPE DOC)
 
 ##
 # Actual packaging
