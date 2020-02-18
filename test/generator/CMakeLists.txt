@@ -97,7 +97,7 @@ function(add_generator_stubs TARGET)
     set(TARGET_NAME "${TARGET}")
 
     add_custom_command(OUTPUT "${TARGET_NAME}.stub.h"
-                       COMMAND "${ARG_FOR}" -g "${ARG_GENERATOR}" -o . -e cpp_stub -n "${TARGET_NAME}"
+                       COMMAND "${ARG_FOR}" -g "${ARG_GENERATOR}" -o . -e cpp_stub -n "${ARG_GENERATOR}"
                        DEPENDS "${ARG_FOR}")
 
     add_custom_target("${TARGET_NAME}.stub.update"
@@ -137,6 +137,10 @@ function(add_halide_library TARGET)
     endif ()
 
     # TODO: handle extra outputs and features.
+
+    ##
+    # Main library target for filter.
+    ##
 
     add_custom_command(OUTPUT
                        "${ARG_FUNCTION_NAME}.a"
