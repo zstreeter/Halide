@@ -386,6 +386,16 @@ endif ()
 add_dependencies(Halide HalideIncludes)
 
 ##
+# Include paths for libHalide
+##
+
+include(GNUInstallDirs)
+target_include_directories(Halide
+                           INTERFACE
+                           $<BUILD_INTERFACE:${Halide_BINARY_DIR}/include>
+                           $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+
+##
 # Set compiler options for libHalide
 ##
 
@@ -488,21 +498,15 @@ endif ()
 # Interface target for enabling PNG/JPEG support in Halide
 ##
 
-add_library(halide_image_io INTERFACE)
-add_library(Halide::ImageIO ALIAS halide_image_io)
+add_library(Halide_ImageIO INTERFACE)
+add_library(Halide::ImageIO ALIAS Halide_ImageIO)
+set_target_properties(Halide_ImageIO PROPERTIES EXPORT_NAME ImageIO)
 
 foreach (LIB IN ITEMS PNG JPEG)
     if (TARGET ${LIB}::${LIB})
-        target_link_libraries(halide_image_io INTERFACE ${LIB}::${LIB})
+        target_link_libraries(Halide_ImageIO INTERFACE ${LIB}::${LIB})
     else ()
         message(STATUS "${LIB} not found; compiling with -DHALIDE_NO_${LIB}")
-        target_compile_definitions(halide_image_io INTERFACE HALIDE_NO_${LIB})
+        target_compile_definitions(Halide_ImageIO INTERFACE HALIDE_NO_${LIB})
     endif ()
 endforeach ()
-
-##
-# Install and export targets.
-##
-
-include(GNUInstallDirs)
-install(TARGETS Halide halide_image_io)

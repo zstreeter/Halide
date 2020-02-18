@@ -55,6 +55,35 @@
 #            DESTINATION .)
 #endforeach ()
 
+##
+# Main library exports
+##
+
+include(GNUInstallDirs)
+
+install(TARGETS Halide
+        EXPORT Halide
+        RUNTIME
+        DESTINATION ${CMAKE_INSTALL_BINDIR}
+        COMPONENT Halide_Runtime
+
+        LIBRARY
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        NAMELINK_SKIP
+        COMPONENT Halide_Runtime
+        NAMELINK_COMPONENT Halide_Development
+
+        ARCHIVE
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        COMPONENT Halide_Development)
+
+install(TARGETS Halide_ImageIO
+        EXPORT Halide)
+
+install(EXPORT Halide
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Halide
+        NAMESPACE Halide::)
+
 set(CPACK_PACKAGE_VENDOR "Halide")
 set(CPACK_RESOURCE_FILE_LICENSE "${Halide_SOURCE_DIR}/LICENSE.txt")
 if (WIN32)
