@@ -1,35 +1,8 @@
-#install(DIRECTORY tutorial
-#        DESTINATION .
-#        FILES_MATCHING
-#        PATTERN "*.cpp"
-#        PATTERN "*.h"
-#        PATTERN "lesson_*.sh"
-#        PATTERN "*.gif"
-#        PATTERN "*.jpg"
-#        PATTERN "*.mp4"
-#        PATTERN "*.png")
-#
-## ---- Tools
-#install(FILES
-#        tools/mex_halide.m
-#        tools/GenGen.cpp
-#        tools/RunGen.h
-#        tools/RunGenMain.cpp
-#        tools/halide_benchmark.h
-#        tools/halide_image.h
-#        tools/halide_image_io.h
-#        tools/halide_image_info.h
-#        tools/halide_malloc_trace.h
-#        tools/halide_trace_config.h
-#        DESTINATION tools)
-#
-
+include(GNUInstallDirs)
 
 ##
 # Main library exports
 ##
-
-include(GNUInstallDirs)
 
 install(TARGETS Halide
         EXPORT Halide
@@ -68,6 +41,32 @@ install(FILES
         ${Halide_SOURCE_DIR}/README_rungen.md
         ${Halide_SOURCE_DIR}/README_webassembly.md
         TYPE DATA)
+
+##
+# Tools
+##
+
+install(DIRECTORY ${Halide_SOURCE_DIR}/tools
+        TYPE DATA
+        FILES_MATCHING
+        PATTERN "*.h"
+        PATTERN "*.cpp"
+        PATTERN "*.m")
+
+##
+# Tutorial
+##
+
+install(DIRECTORY ${Halide_SOURCE_DIR}/tutorial
+        TYPE DATA
+        FILES_MATCHING
+        PATTERN "*.cpp"
+        PATTERN "*.h"
+        PATTERN "lesson_*.sh"
+        PATTERN "*.gif"
+        PATTERN "*.jpg"
+        PATTERN "*.mp4"
+        PATTERN "*.png")
 
 ##
 # Documentation
