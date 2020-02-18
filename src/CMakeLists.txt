@@ -443,15 +443,6 @@ target_compile_options(Halide
                        )
 
 ##
-# Set up include directories for libHalide
-##
-
-# TODO: don't depend on headers in binary directory!
-target_include_directories(Halide INTERFACE "${Halide_BINARY_DIR}/include")
-target_include_directories(Halide INTERFACE "${Halide_SOURCE_DIR}/tools")
-target_include_directories(Halide PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
-
-##
 # Set up macro definitions for libHalide
 ##
 
