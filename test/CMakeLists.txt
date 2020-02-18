@@ -20,7 +20,7 @@ if (WITH_TEST_CORRECTNESS)
     add_subdirectory(correctness)
 endif ()
 
-option(WITH_TEST_ERROR "Build error tests" OFF)
+option(WITH_TEST_ERROR "Build error tests" ON)
 if (WITH_TEST_ERROR)
     add_subdirectory(error)
 endif ()
