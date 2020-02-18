@@ -459,7 +459,10 @@ target_compile_options(Halide
 # Define Halide_SHARED or Halide_STATIC depending on library type
 target_compile_definitions(Halide PRIVATE
                            "Halide_${HALIDE_LIBRARY_TYPE}"
+                           )
 
+# TODO: what do these do, and why are they necessary?
+target_compile_definitions(Halide PUBLIC
                            $<$<CXX_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS>
                            $<$<CXX_COMPILER_ID:MSVC>:_SCL_SECURE_NO_WARNINGS>
                            )
