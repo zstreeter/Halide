@@ -1,16 +1,12 @@
 include(HalideTestHelpers)
 
-##
-# Create test categories
-##
-
 # Internal tests are a special case.
 add_executable(_test_internal internal.cpp)
 target_link_libraries(_test_internal PRIVATE Halide::Halide)
 target_include_directories(_test_internal PRIVATE "${Halide_SOURCE_DIR}/src")
 add_halide_test(_test_internal GROUPS internal)
 
-option(WITH_TEST_AUTO_SCHEDULE "Build auto_schedule tests" OFF)
+option(WITH_TEST_AUTO_SCHEDULE "Build auto_schedule tests" ON)
 if (WITH_TEST_AUTO_SCHEDULE)
     add_subdirectory(auto_schedule)
 endif ()
@@ -40,7 +36,7 @@ if (WITH_TEST_OPENGL)
     add_subdirectory(opengl)
 endif ()
 
-option(WITH_TEST_GENERATOR "Build Generator tests" OFF)
+option(WITH_TEST_GENERATOR "Build generator tests" OFF)
 if (WITH_TEST_GENERATOR)
     add_subdirectory(generator)
 endif ()
