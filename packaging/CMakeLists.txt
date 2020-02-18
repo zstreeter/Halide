@@ -23,9 +23,6 @@
 #        tools/halide_trace_config.h
 #        DESTINATION tools)
 #
-## ---- README
-
-#
 
 
 ##
@@ -73,12 +70,10 @@ install(FILES
         TYPE DATA)
 
 ##
-# Installation
+# Documentation
 ##
 
-# TODO: make this depend on the documentation actually being built.
-set(CMAKE_INSTALL_DOCDIR ${CMAKE_INSTALL_DATAROOTDIR}/doc/${PROJECT_NAME})
-install(DIRECTORY ${Halide_BINARY_DIR}/doc/html/ TYPE DOC)
+# See /doc/CMakeLists.txt. This way, special install logic isn't needed.
 
 ##
 # Actual packaging
