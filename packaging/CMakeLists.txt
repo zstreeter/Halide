@@ -1,13 +1,3 @@
-## TODO: the use of glob here is almost certainly brittle if not outright wrong.
-#file(GLOB FILES "${Halide_BINARY_DIR}/include/HalideRuntime*.h")
-#install(FILES
-#        "${Halide_BINARY_DIR}/include/Halide.h"
-#        "${Halide_BINARY_DIR}/include/HalideBuffer.h"
-#        "${Halide_BINARY_DIR}/include/HalidePyTorchHelpers.h"
-#        "${Halide_BINARY_DIR}/include/HalidePyTorchCudaHelpers.h"
-#        ${FILES}
-#        DESTINATION include)
-#
 #install(DIRECTORY tutorial
 #        DESTINATION .
 #        FILES_MATCHING
@@ -69,13 +59,14 @@ install(TARGETS Halide
 
         LIBRARY
         DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        NAMELINK_SKIP
         COMPONENT Halide_Runtime
         NAMELINK_COMPONENT Halide_Development
 
         ARCHIVE
         DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        COMPONENT Halide_Development)
+        COMPONENT Halide_Development
+
+        INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 install(TARGETS Halide_ImageIO
         EXPORT Halide)
@@ -83,6 +74,20 @@ install(TARGETS Halide_ImageIO
 install(EXPORT Halide
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Halide
         NAMESPACE Halide::)
+
+install(DIRECTORY ${Halide_BINARY_DIR}/include/ TYPE INCLUDE FILES_MATCHING PATTERN "include/*.h")
+
+##
+# Documentation
+##
+
+# TODO: install docs.
+#include(GNUInstallDirs)
+#set(CMAKE_INSTALL_DOCDIR ${CMAKE_INSTALL_DATAROOTDIR}/doc/${PROJECT_NAME})
+
+##
+# Actual packaging
+##
 
 set(CPACK_PACKAGE_VENDOR "Halide")
 set(CPACK_RESOURCE_FILE_LICENSE "${Halide_SOURCE_DIR}/LICENSE.txt")
