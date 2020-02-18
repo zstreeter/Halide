@@ -1,9 +1,12 @@
 cmake_minimum_required(VERSION 3.14)
 project(Halide)
+enable_testing()
 
 ##
 # Set up project-wide properties
 ##
+
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
 get_property(USE_FOLDERS_WAS_SET GLOBAL PROPERTY USE_FOLDERS SET)
 if (NOT USE_FOLDERS_WAS_SET)
     set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -27,6 +30,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 ##
 # Import dependencies
 ##
+
 add_subdirectory(dependencies)
 
 ##
@@ -44,7 +48,6 @@ if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     option(WITH_TESTS "Build tests" OFF)
     if (WITH_TESTS)
         message(STATUS "Building tests enabled")
-        enable_testing()
         add_subdirectory(test)
     else ()
         message(STATUS "Building tests disabled")
