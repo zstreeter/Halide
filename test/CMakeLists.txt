@@ -1,60 +1,10 @@
-##
-# Common test infrastructure
-##
-
 include(HalideTestHelpers)
-
-# TODO: move this to helpers file.
-
-# Add an OBJECT (not static) library to convert abort calls into exit(1).
-add_library(Halide_expect_abort OBJECT common/expect_abort.cpp)
-
-# Capture common halide test features in a single target.
-add_library(Halide_test INTERFACE)
-target_include_directories(Halide_test INTERFACE common)
-
-# Tests are built with the equivalent of OPTIMIZE_FOR_BUILD_TIME (-O0 or /Od).
-# Also allow tests, via conditional compilation, to use the entire
-# capability of the CPU being compiled on via -march=native. This
-# presumes tests are run on the same machine they are compiled on.
-target_compile_options(Halide_test INTERFACE
-                       $<$<CXX_COMPILER_ID:MSVC>:/Od>
-                       $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-O0>
-                       $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-march=native>)
-
-function(tests)
-    set(options EXPECT_FAILURE)
-    set(oneValueArgs)
-    set(multiValueArgs SOURCES GROUPS)
-    cmake_parse_arguments(args "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
-
-    list(GET args_GROUPS 0 PRIMARY_GROUP)
-
-    set(TEST_NAMES "")
-    foreach (file ${args_SOURCES})
-        get_filename_component(name "${file}" NAME_WE)
-        set(TARGET "${PRIMARY_GROUP}_${name}")
-
-        list(APPEND TEST_NAMES "${TARGET}")
-
-        halide_project("${TARGET}" "${CMAKE_CURRENT_SOURCE_DIR}" "${file}")
-        target_link_libraries("${TARGET}" PRIVATE Halide_test)
-
-        if (args_EXPECT_FAILURE)
-            add_halide_test("${TARGET}" GROUPS ${args_GROUPS} EXPECT_FAILURE)
-            target_link_libraries("${TARGET}" PRIVATE Halide_expect_abort)
-        else ()
-            add_halide_test("${TARGET}" GROUPS ${args_GROUPS})
-        endif ()
-    endforeach ()
-
-    set(TEST_NAMES "${TEST_NAMES}" PARENT_SCOPE)
-endfunction(tests)
 
 ##
 # Create test categories
 ##
 
+# Internal tests are a special case.
 add_executable(_test_internal internal.cpp)
 target_link_libraries(_test_internal PRIVATE Halide::Halide)
 target_include_directories(_test_internal PRIVATE "${Halide_SOURCE_DIR}/src")
@@ -65,7 +15,7 @@ if (WITH_TEST_AUTO_SCHEDULE)
     add_subdirectory(auto_schedule)
 endif ()
 
-option(WITH_TEST_CORRECTNESS "Build correctness tests" OFF)
+option(WITH_TEST_CORRECTNESS "Build correctness tests" ON)
 if (WITH_TEST_CORRECTNESS)
     add_subdirectory(correctness)
 endif ()
