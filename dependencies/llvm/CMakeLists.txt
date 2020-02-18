@@ -145,8 +145,6 @@ if (NOT LLVM_ENABLE_ASSERTIONS)
 endif ()
 
 option(HALIDE_ENABLE_RTTI "Enable RTTI" ${LLVM_ENABLE_RTTI})
-option(HALIDE_ENABLE_EXCEPTIONS "Enable exceptions" ${LLVM_ENABLE_EH})
-
 if (HALIDE_ENABLE_RTTI AND NOT LLVM_ENABLE_RTTI)
     message(FATAL_ERROR "Can't enable RTTI. LLVM was compiled without it")
 endif ()
@@ -155,6 +153,11 @@ if (NOT LLVM_ENABLE_RTTI)
     target_compile_options(llvm INTERFACE
                            $<$<COMPILE_LANG_AND_ID:CXX,MSVC>:/GR- >
                            $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:-fno-rtti>)
+endif ()
+
+option(HALIDE_ENABLE_EXCEPTIONS "Enable exceptions" ${LLVM_ENABLE_EH})
+if (HALIDE_ENABLE_EXCEPTIONS)
+    target_compile_definitions(llvm_config INTERFACE WITH_EXCEPTIONS)
 endif ()
 
 ##

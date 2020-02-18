@@ -1,8 +1,9 @@
-include(CheckCXXCompilerFlag)
+##
+# Lists of source files. Keep ALL lists sorted in alphabetical order.
+##
 
 # The externally-visible header files that go into making Halide.h.
 # Don't include anything here that includes llvm headers.
-# Keep this list sorted in alphabetical order.
 set(HEADER_FILES
     AddAtomicMutex.h
     AddImageChecks.h
@@ -165,7 +166,6 @@ set(HEADER_FILES
     WrapCalls.h
     )
 
-# Keep this list sorted in alphabetical order.
 set(SOURCE_FILES
     AddAtomicMutex.cpp
     AddImageChecks.cpp
@@ -335,51 +335,13 @@ set(SOURCE_FILES
     WrapCalls.cpp
     )
 
-# Set warnings globally
-option(WARNINGS_AS_ERRORS "Treat warnings as errors" ON)
-if (WARNINGS_AS_ERRORS)
-    message(STATUS "WARNINGS_AS_ERRORS enabled")
-else ()
-    message(STATUS "WARNINGS_AS_ERRORS disabled")
-endif ()
-
-if (NOT MSVC)
-    add_compile_options(
-            -Wall
-            -Wno-unused-function
-            -Wcast-qual
-            -Wignored-qualifiers
-            $<$<COMPILE_LANGUAGE:CXX>:-Woverloaded-virtual>
-            $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:GNU>,$<VERSION_GREATER:$<CXX_COMPILER_VERSION>,5.1>>:-Wsuggest-override>
-    )
-    if (WARNINGS_AS_ERRORS)
-        add_compile_options(-Werror)
-    endif ()
-    if (HALIDE_ENABLE_EXCEPTIONS)
-        add_compile_options(-DWITH_EXCEPTIONS)
-    endif ()
-else ()
-    add_compile_options(/W3)
-    add_compile_options(/wd4018)  # disable "signed/unsigned mismatch"
-    add_compile_options(/wd4503)  # disable "decorated name length exceeded, name was truncated"
-    add_compile_options(/wd4267)  # disable "conversion from 'size_t' to 'int', possible loss of data"
-    add_compile_options(/wd4800)  # forcing value to bool 'true' or 'false' (performance warning)
-    if (WARNINGS_AS_ERRORS)
-        add_compile_options(/WX)
-    endif ()
-    if (HALIDE_ENABLE_EXCEPTIONS)
-        add_compile_options(/DWITH_EXCEPTIONS)
-    endif ()
-endif ()
-
 ##
 # Build and import the runtime.
 ##
 add_subdirectory(runtime)
 
 ##
-# Build the Halide mono-header
-# TODO: break dependency on this for internal use
+# Build the Halide mono-header.
 ##
 
 file(TO_NATIVE_PATH "${Halide_BINARY_DIR}/include/Halide.h" NATIVE_HALIDE_H)
@@ -396,6 +358,7 @@ add_custom_target(
 ##
 # Define the Halide library target.
 ##
+
 option(HALIDE_SHARED_LIBRARY "Build as a shared library" ON)
 if (HALIDE_SHARED_LIBRARY)
     set(HALIDE_LIBRARY_TYPE SHARED)
@@ -405,31 +368,99 @@ else ()
     message(STATUS "Building Halide as a static library")
 endif ()
 
-add_library(Halide ${HALIDE_LIBRARY_TYPE}
-            ${SOURCE_FILES}
-            ${HEADER_FILES}
-            )
+add_library(Halide ${HALIDE_LIBRARY_TYPE} ${SOURCE_FILES} ${HEADER_FILES})
+add_library(Halide::Halide ALIAS Halide)
 
-target_link_libraries(Halide PRIVATE Halide_initmod)
+target_link_libraries(Halide PRIVATE Halide_initmod LLVM::LLVM LLVM::Config)
 
-##
-# Set definitions and compiler flags
-##
+# TODO: determine whether this is still necessary
+if (NOT MSVC AND NOT LLVM_USE_SHARED_LLVM_LIBRARY)
+    execute_process(COMMAND llvm-config --system-libs ${LLVM_COMPONENTS} OUTPUT_VARIABLE EXTRA_LIBS)
+    string(STRIP EXTRA_LIBS "${EXTRA_LIBS}")   # strip whitespace from start & end
+    string(REPLACE "\n" "" EXTRA_LIBS "${EXTRA_LIBS}")
+    string(REPLACE " " ";" EXTRA_LIBS "${EXTRA_LIBS}")  # convert into a list
+    target_link_libraries(Halide PRIVATE ${EXTRA_LIBS})
+endif ()
 
-# We could expose the /MP flag to all targets, but that might end up saturating the build
-# since multiple MSBuild projects might get built in parallel, each of which compiling their
-# source files in parallel; the Halide library itself is a "knot" point of the build graph,
-# so compiling its files in parallel should not oversubscribe the system
-target_compile_options(Halide PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/MP>)
-
-# Define Halide_SHARED or Halide_STATIC depending on library type
-target_compile_definitions(Halide PRIVATE "Halide_${HALIDE_LIBRARY_TYPE}")
 add_dependencies(Halide HalideIncludes)
+
+##
+# Set compiler options for libHalide
+##
+
+option(WARNINGS_AS_ERRORS "Treat warnings as errors" ON)
+if (WARNINGS_AS_ERRORS)
+    target_compile_options(Halide
+                           PRIVATE
+                           $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Werror>
+                           $<$<CXX_COMPILER_ID:MSVC>:/WX>)
+endif ()
+
+if (NOT HALIDE_ENABLE_RTTI)
+    target_compile_options(Halide PUBLIC
+                           $<$<COMPILE_LANG_AND_ID:CXX,MSVC>:/GR- >
+                           $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:-fno-rtti>)
+endif ()
+
+target_compile_options(Halide
+                       PRIVATE
+                       $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall>
+                       $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wno-unused-function>
+                       $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wcast-qual>
+                       $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wignored-qualifiers>
+
+                       $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang,AppleClang>:-Woverloaded-virtual>
+                       $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang,AppleClang>:-Wsuggest-override>
+
+                       $<$<CXX_COMPILER_ID:MSVC>:/W3>
+                       $<$<CXX_COMPILER_ID:MSVC>:/wd4018>  # disable "signed/unsigned mismatch"
+                       $<$<CXX_COMPILER_ID:MSVC>:/wd4503>  # disable "decorated name length exceeded, name was truncated"
+                       $<$<CXX_COMPILER_ID:MSVC>:/wd4267>  # disable "conversion from 'size_t' to 'int', possible loss of data"
+                       $<$<CXX_COMPILER_ID:MSVC>:/wd4800>  # forcing value to bool 'true' or 'false' (performance warning)
+                       $<$<CXX_COMPILER_ID:MSVC>:/wd4244>  # 4244: conversion, possible loss of data
+                       $<$<CXX_COMPILER_ID:MSVC>:/wd4267>  # 4267: conversion, possible loss of data
+                       $<$<CXX_COMPILER_ID:MSVC>:/wd4800>  # 4800: BOOL -> true or false
+                       $<$<CXX_COMPILER_ID:MSVC>:/wd4996>  # 4996: compiler encountered deprecated declaration
+
+                       # Injected from recent LLVM:
+                       $<$<CXX_COMPILER_ID:MSVC>:/wd4141>  # 'inline' used more than once
+                       $<$<CXX_COMPILER_ID:MSVC>:/wd4146>  # unary minus applied to unsigned type
+                       $<$<CXX_COMPILER_ID:MSVC>:/wd4291>  # No matching operator delete found
+
+                       # We could expose the /MP flag to all targets, but that might end up saturating the build
+                       # since multiple MSBuild projects might get built in parallel, each of which compiling their
+                       # source files in parallel; the Halide library itself is a "knot" point of the build graph,
+                       # so compiling its files in parallel should not oversubscribe the system
+                       $<$<CXX_COMPILER_ID:MSVC>:/MP>
+
+                       # To compile LLVM headers following was taken from LLVM CMake files:
+                       # Disable sized deallocation if the flag is supported. MSVC fails to compile
+                       # the operator new overload in LLVM/IR/Function.h and Instruction.h otherwise.
+                       # See LLVM PR: 23513 (https://llvm.org/bugs/show_bug.cgi?id=23513)
+                       # TODO: decide whether we still support MSVC <2015, which is when this flag was introduced.
+                       $<$<CXX_COMPILER_ID:MSVC>:/Zc:sizedDealloc- >
+                       )
+
+##
+# Set up include directories for libHalide
+##
 
 # TODO: don't depend on headers in binary directory!
 target_include_directories(Halide INTERFACE "${Halide_BINARY_DIR}/include")
 target_include_directories(Halide INTERFACE "${Halide_SOURCE_DIR}/tools")
 target_include_directories(Halide PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+
+##
+# Set up macro definitions for libHalide
+##
+
+# Define Halide_SHARED or Halide_STATIC depending on library type
+target_compile_definitions(Halide PRIVATE
+                           "Halide_${HALIDE_LIBRARY_TYPE}"
+
+                           $<$<CXX_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS>
+                           $<$<CXX_COMPILER_ID:MSVC>:_SCL_SECURE_NO_WARNINGS>
+                           )
 
 option(TARGET_OPENCL "Include OpenCL-C target" ON)
 if (TARGET_OPENCL)
@@ -461,54 +492,13 @@ if (NOT LLVM_ENABLE_ASSERTIONS)
     target_compile_definitions(Halide PRIVATE NDEBUG)
 endif ()
 
-## Suppress some warnings
-target_compile_options(Halide PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/wd4244>)  # 4244: conversion, possible loss of data
-target_compile_options(Halide PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/wd4267>)  # 4267: conversion, possible loss of data
-target_compile_options(Halide PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/wd4800>)  # 4800: BOOL -> true or false
-target_compile_options(Halide PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/wd4996>)  # 4996: compiler encountered deprecated declaration
-# Injected from recent LLVM:
-target_compile_options(Halide PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/wd4141>)  # 'inline' used more than once
-target_compile_options(Halide PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/wd4146>)  # unary minus applied to unsigned type
-target_compile_options(Halide PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/wd4291>)  # No matching operator delete found
-
-target_compile_definitions(Halide PRIVATE
-                           $<$<CXX_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS>
-                           $<$<CXX_COMPILER_ID:MSVC>:_SCL_SECURE_NO_WARNINGS>)
-
-if (MSVC)
-    # To compile LLVM headers following was taken from LLVM CMake files:
-    # Disable sized deallocation if the flag is supported. MSVC fails to compile
-    # the operator new overload in LLVM/IR/Function.h and Instruction.h otherwise.
-    # See LLVM PR: 23513 (https://llvm.org/bugs/show_bug.cgi?id=23513)
-    check_cxx_compiler_flag("/WX /Zc:sizedDealloc-" SUPPORTS_SIZED_DEALLOC)
-    if (SUPPORTS_SIZED_DEALLOC)
-        target_compile_options(Halide PRIVATE "/Zc:sizedDealloc-")
-    endif ()
-endif ()
-
-if (NOT HALIDE_ENABLE_RTTI)
-    target_compile_options(Halide PUBLIC
-                           $<$<COMPILE_LANG_AND_ID:CXX,MSVC>:/GR- >
-                           $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:-fno-rtti>)
-endif ()
-
-target_link_libraries(Halide PRIVATE LLVM::LLVM LLVM::Config)
-
-if (NOT MSVC AND NOT LLVM_USE_SHARED_LLVM_LIBRARY)
-    execute_process(COMMAND llvm-config --system-libs ${LLVM_COMPONENTS} OUTPUT_VARIABLE EXTRA_LIBS)
-    string(STRIP EXTRA_LIBS "${EXTRA_LIBS}")   # strip whitespace from start & end
-    string(REPLACE "\n" "" EXTRA_LIBS "${EXTRA_LIBS}")
-    string(REPLACE " " ";" EXTRA_LIBS "${EXTRA_LIBS}")  # convert into a list
-    target_link_libraries(Halide PRIVATE ${EXTRA_LIBS})
-endif ()
-
-add_library(Halide::Halide ALIAS Halide)
-
 ##
 # Interface target for enabling PNG/JPEG support in Halide
 ##
 
 add_library(halide_image_io INTERFACE)
+add_library(Halide::ImageIO ALIAS halide_image_io)
+
 foreach (LIB IN ITEMS PNG JPEG)
     if (TARGET ${LIB}::${LIB})
         target_link_libraries(halide_image_io INTERFACE ${LIB}::${LIB})
@@ -517,13 +507,10 @@ foreach (LIB IN ITEMS PNG JPEG)
         target_compile_definitions(halide_image_io INTERFACE HALIDE_NO_${LIB})
     endif ()
 endforeach ()
-add_library(Halide::ImageIO ALIAS halide_image_io)
 
 ##
 # Install and export targets.
 ##
 
-install(TARGETS Halide
-        RUNTIME DESTINATION bin
-        LIBRARY DESTINATION bin
-        ARCHIVE DESTINATION lib)
+include(GNUInstallDirs)
+install(TARGETS Halide halide_image_io)
