@@ -7,15 +7,11 @@ int main() {
 }
 #else
 
-#include <stddef.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "Halide.h"
-#include "HalideRuntimeOpenGL.h"
 
-#include "runtime/mini_opengl.h"
+#include <cstdio>
+
+#include <GL/glut.h>
 
 using namespace Halide;
 

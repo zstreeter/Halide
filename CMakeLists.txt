@@ -45,7 +45,7 @@ add_subdirectory(tools)
 ##
 
 if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
-    option(WITH_TESTS "Build tests" OFF)
+    option(WITH_TESTS "Build tests" ON)
     if (WITH_TESTS)
         message(STATUS "Building tests enabled")
         add_subdirectory(test)

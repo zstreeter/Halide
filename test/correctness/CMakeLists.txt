@@ -323,3 +323,57 @@ tests(GROUPS correctness travis
 
 # Make sure the test that needs image_io has it
 target_link_libraries(correctness_image_io PRIVATE Halide::ImageIO)
+
+# Some tests explicitly need threads.
+foreach (TEST IN ITEMS
+         correctness_boundary_conditions
+         correctness_gpu_allocation_cache
+         correctness_mul_div_mod
+         correctness_simd_op_check
+         correctness_simd_op_check_hvx
+         correctness_thread_safety
+         correctness_vector_cast
+         correctness_vector_math)
+    target_link_libraries(${TEST} PRIVATE Threads::Threads)
+endforeach ()
+
+# Tests which use external funcs need to enable exports.
+foreach (TEST IN ITEMS
+         correctness_async
+         correctness_c_function
+         correctness_compute_at_split_rvar
+         correctness_concat
+         correctness_custom_lowering_pass
+         correctness_extern_bounds_inference
+         correctness_extern_consumer
+         correctness_extern_consumer_tiled
+         correctness_extern_error
+         correctness_extern_output_expansion
+         correctness_extern_partial
+         correctness_extern_producer
+         correctness_extern_reorder_storage
+         correctness_extern_sort
+         correctness_extern_stage
+         correctness_extern_stage_on_device
+         correctness_handle
+         correctness_image_of_lists
+         correctness_lazy_convolution
+         correctness_loop_invariant_extern_calls
+         correctness_make_struct
+         correctness_many_small_extern_stages
+         correctness_memoize_cloned
+         correctness_memoize
+         correctness_multiple_outputs_extern
+         correctness_parallel_fork
+         correctness_pipeline_set_jit_externs_func
+         correctness_process_some_tiles
+         correctness_side_effects
+         correctness_skip_stages
+         correctness_skip_stages_external_array_functions
+         correctness_sliding_backwards
+         correctness_sliding_reduction
+         correctness_sliding_window
+         correctness_storage_folding)
+    # target_link_libraries(${TEST} PRIVATE ${CMAKE_DL_LIBS})
+    set_target_properties(${TEST} PROPERTIES ENABLE_EXPORTS TRUE)
+endforeach ()

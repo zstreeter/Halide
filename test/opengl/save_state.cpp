@@ -7,14 +7,14 @@ int main() {
 }
 #else
 
-#include <cstring>
-#include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "Halide.h"
 
-#include "runtime/mini_opengl.h"
+#include <cstddef>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+
+#include <GL/glut.h>
 
 extern "C" void glGenTextures(GLsizei, GLuint *);
 extern "C" void glTexParameteri(GLenum, GLenum, GLint);
