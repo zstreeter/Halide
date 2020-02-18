@@ -31,3 +31,8 @@ doxygen_add_docs(doc
                  "${Halide_SOURCE_DIR}/src"
                  "${Halide_SOURCE_DIR}/test"
                  COMMENT "Generate HTML documentation")
+
+include(GNUInstallDirs)
+set(CMAKE_INSTALL_DOCDIR ${CMAKE_INSTALL_DATAROOTDIR}/doc/${PROJECT_NAME})
+
+# TODO: install docs.
