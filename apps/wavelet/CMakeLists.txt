@@ -10,12 +10,12 @@
 project(wavelet)
 cmake_minimum_required(VERSION 3.1.3)
 
-# halide.cmake requires that HALIDE_DISTRIB_DIR be set to point to the Halide distribution folder we use.
+# HalideGeneratorHelpers.cmake requires that HALIDE_DISTRIB_DIR be set to point to the Halide distribution folder we use.
 # This assumes it's built at the toplevel via 'make distrib' (ironically, the CMake build isn't
 # yet capable of producing a distrib folder).
 set(HALIDE_DISTRIB_DIR "${CMAKE_CURRENT_LIST_DIR}/../../distrib")
 
-# halide.cmake defaults to using the shared-library version of libHalide;
+# HalideGeneratorHelpers.cmake defaults to using the shared-library version of libHalide;
 # we can make it prefer the static-library version by setting this:
 # set(HALIDE_DISTRIB_USE_STATIC_LIBRARY TRUE)
 

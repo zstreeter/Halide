@@ -362,7 +362,7 @@ const std::map<std::string, Target::Feature> feature_name_map = {
     {"sve", Target::SVE},
     {"sve2", Target::SVE2},
     // NOTE: When adding features to this map, be sure to update
-    // PyEnums.cpp and halide.cmake as well.
+    // PyEnums.cpp and HalideGeneratorHelpers.cmake as well.
 };
 
 bool lookup_feature(const std::string &tok, Target::Feature &result) {
