@@ -30,7 +30,7 @@ if (WITH_TEST_WARNING)
     add_subdirectory(warning)
 endif ()
 
-option(WITH_TEST_PERFORMANCE "Build performance tests" OFF)
+option(WITH_TEST_PERFORMANCE "Build performance tests" ON)
 if (WITH_TEST_PERFORMANCE)
     add_subdirectory(performance)
 endif ()
