@@ -1076,6 +1076,8 @@ class VectorSubs : public IRMutator {
                 break;
             }
 
+            // Bools get cast to uint8 for storage. Strip off that
+            // cast around any load.
             if (b.type().is_bool()) {
                 const Cast *cast_op = b.as<Cast>();
                 if (cast_op) {
@@ -1094,55 +1096,63 @@ class VectorSubs : public IRMutator {
             }
 
             const Variable *var_b = b.as<Variable>();
-            if (!var_b) break;
-
-            if (!scope.contains(var_b->name)) break;
-            b = scope.get(var_b->name);
-
-            const Cast *cast_a = a.as<Cast>();
-            if (cast_a && a.type().is_bool()) {
-                a = cast_a->value;
-            }
-
             const Load *load_a = a.as<Load>();
-            if (!load_a) break;
 
-            if (load_a->name != store->name ||
-                !can_prove(load_a->index == store->index) ||
+            if (!var_b ||
+                !scope.contains(var_b->name) ||
+                !load_a ||
+                load_a->name != store->name ||
                 !is_one(load_a->predicate) ||
                 !is_one(store->predicate)) {
                 break;
             }
 
-            Expr idx = store->index;
-            if (const Variable *idx_var = store->index.as<Variable>()) {
-                if (scope.contains(idx_var->name)) {
-                    idx = scope.get(idx_var->name);
-                }
-            } else if (is_const(store->index)) {
-                idx = store->index;
-            } else {
+            b = mutate(b);
+            Expr store_index = mutate(store->index);
+            Expr load_index = mutate(load_a->index);
+
+            // The load and store indices must be the same interleaved
+            // ramp (or the same scalar, in the total reduction case).
+            InterleavedRamp store_ir, load_ir;
+            Expr test;
+            if (store_index.type().is_scalar()) {
+                test = load_index == store_index;
+            } else if (is_interleaved_ramp(store_index, vector_scope, &store_ir) &&
+                       is_interleaved_ramp(load_index, vector_scope, &load_ir) &&
+                       store_ir.repetitions == load_ir.repetitions &&
+                       store_ir.lanes == load_ir.lanes) {
+                test = simplify(store_ir.base == load_ir.base &&
+                                store_ir.stride == load_ir.stride);
+            }
+
+            if (!test.defined()) {
+                break;
+            }
+
+            if (is_zero(test)) {
+                break;
+            } else if (!is_one(test)) {
+                // TODO: try harder by substituting in more things in scope
                 break;
             }
 
             int output_lanes = 1;
-            if (idx.type().is_scalar()) {
+            if (store_index.type().is_scalar()) {
                 // The index doesn't depend on the value being
                 // vectorized, so it's a total reduction.
 
                 b = VectorReduce::make(reduce_op, b, 1);
             } else {
 
-                InterleavedRamp ir;
-                if (!is_interleaved_ramp(idx, vector_scope, &ir)) break;
-                output_lanes = idx.type().lanes() / ir.repetitions;
+                output_lanes = store_index.type().lanes() / store_ir.repetitions;
 
-                idx = Ramp::make(ir.base, ir.stride, output_lanes);
+                store_index = Ramp::make(store_ir.base, store_ir.stride, output_lanes);
+                debug(0) << b << " " << store_index << " " << output_lanes << "\n";
                 b = VectorReduce::make(reduce_op, b, output_lanes);
             }
 
             Expr new_load = Load::make(load_a->type.with_lanes(output_lanes),
-                                       load_a->name, idx, load_a->image,
+                                       load_a->name, store_index, load_a->image,
                                        load_a->param, const_true(output_lanes),
                                        ModulusRemainder{});
 
@@ -1167,7 +1177,7 @@ class VectorSubs : public IRMutator {
                 break;
             }
 
-            Stmt s = Store::make(store->name, b, idx, store->param,
+            Stmt s = Store::make(store->name, b, store_index, store->param,
                                  const_true(b.type().lanes()), store->alignment);
 
             return s;
