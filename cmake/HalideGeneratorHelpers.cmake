@@ -60,13 +60,14 @@ function(add_halide_library TARGET)
 
     if (NOT ARG_USE_RUNTIME)
         add_library("${TARGET}.runtime" STATIC IMPORTED)
+        target_link_libraries("${TARGET}.runtime" INTERFACE ${CMAKE_DL_LIBS})
         add_custom_command(OUTPUT "${TARGET}.runtime.a"
                            COMMAND "${ARG_FROM}" -r "${TARGET}.runtime" -o . target=${TARGETS})
         add_custom_target("${TARGET}.runtime.update"
                           DEPENDS "${TARGET}.runtime.a")
         set_target_properties("${TARGET}.runtime" PROPERTIES IMPORTED_LOCATION "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.runtime.a")
-        set(ARG_USE_RUNTIME "${TARGET}.runtime")
         add_dependencies("${TARGET}.runtime" "${TARGET}.runtime.update")
+        set(ARG_USE_RUNTIME "${TARGET}.runtime")
     endif ()
 
     # TODO: handle extra outputs
