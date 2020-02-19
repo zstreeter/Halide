@@ -1,37 +1,43 @@
-#
 # NOTE: Unlike all other CMakeLists.txt in the apps/ folder, this
 # is deliberately intended to be standalone (not included from the toplevel)
 # in order to show the minimum scaffolding necessary to use ahead-of-time
 # Generators in a simple app.
 #
 # To use:
-# mkdir cmake_build && cd cmake_build && cmake .. && make -j8 && ./bin/wavelet ../../images/gray.png .
+# $ mkdir build
+# $ cd build
+# $ cmake -DHalide_DIR=<path/to/HalideConfig.cmake> -DCMAKE_BUILD_TYPE=Release ..
+# $ cmake --build . -j 4
+# $ ./bin/wavelet ../../images/gray.png .
 
 project(wavelet)
-cmake_minimum_required(VERSION 3.1.3)
+cmake_minimum_required(VERSION 3.14)
 
-# HalideGeneratorHelpers.cmake requires that HALIDE_DISTRIB_DIR be set to point to the Halide distribution folder we use.
-# This assumes it's built at the toplevel via 'make distrib' (ironically, the CMake build isn't
-# yet capable of producing a distrib folder).
-set(HALIDE_DISTRIB_DIR "${CMAKE_CURRENT_LIST_DIR}/../../distrib")
+# Set up language settings
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED YES)
+set(CMAKE_CXX_EXTENSIONS NO)
 
-# HalideGeneratorHelpers.cmake defaults to using the shared-library version of libHalide;
-# we can make it prefer the static-library version by setting this:
-# set(HALIDE_DISTRIB_USE_STATIC_LIBRARY TRUE)
-
-include("${HALIDE_DISTRIB_DIR}/halide.cmake")
+# Find Halide
+find_package(Halide CONFIG REQUIRED)
 
 # Define the wavelet app
-add_executable(wavelet "${CMAKE_CURRENT_SOURCE_DIR}/wavelet.cpp")
-set_target_properties(wavelet PROPERTIES CXX_STANDARD 11 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
-target_include_directories(wavelet PRIVATE "${HALIDE_INCLUDE_DIR}" "${HALIDE_TOOLS_DIR}")
-halide_use_image_io(wavelet)
+add_executable(wavelet wavelet.cpp)
+target_link_libraries(wavelet PRIVATE Halide::Halide Halide::ImageIO)
 
-# Define a halide_library() for each generator we have, and link each one into wavelet
-file(GLOB GENS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/*_generator.cpp")
-foreach(GEN_SRC ${GENS})
-    string(REPLACE "_generator.cpp" "" GEN_NAME "${GEN_SRC}")
-    halide_library("${GEN_NAME}" SRCS ${GEN_SRC})
-    target_link_libraries(wavelet PUBLIC "${GEN_NAME}")
-endforeach()
+# Define a halide library for each generator we have, and link each one into wavelet
+set(GEN_SOURCES
+    daubechies_x_generator.cpp
+    inverse_daubechies_x_generator.cpp
+    haar_x_generator.cpp
+    inverse_haar_x_generator.cpp
+    )
 
+foreach (GEN IN LISTS GEN_SOURCES)
+    string(REPLACE "_generator.cpp" "" BASE_NAME "${GEN}")
+    add_executable("${BASE_NAME}.generator" "${GEN}" daubechies_constants.h)
+    target_link_libraries("${BASE_NAME}.generator" PRIVATE Halide::Generator)
+
+    add_halide_library("${BASE_NAME}" FROM "${BASE_NAME}.generator")
+    target_link_libraries(wavelet PRIVATE "${BASE_NAME}")
+endforeach ()

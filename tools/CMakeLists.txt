@@ -1,16 +1,58 @@
+##
+# Build time tools
+##
+
 add_executable(build_halide_h build_halide_h.cpp)
 target_compile_options(build_halide_h PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/wd4996>)
 
 add_executable(binary2cpp binary2cpp.cpp)
 target_compile_options(binary2cpp PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/wd4996>)
 
-# TODO: export this.
-add_library(Halide_run_gen_main OBJECT RunGenMain.cpp)
-add_library(Halide::RunGenMain ALIAS Halide_run_gen_main)
-target_link_libraries(Halide_run_gen_main PUBLIC Halide::Halide Halide::ImageIO)
+##
+# Interface target for enabling PNG/JPEG support in Halide
+##
 
-# TODO: export this.
-add_library(Halide_generator INTERFACE)
-add_library(Halide::Generator ALIAS Halide_generator)
-target_sources(Halide_generator INTERFACE GenGen.cpp)
-target_link_libraries(Halide_generator INTERFACE Halide::Halide Threads::Threads ${CMAKE_DL_LIBS})
+add_library(Halide_ImageIO INTERFACE)
+add_library(Halide::ImageIO ALIAS Halide_ImageIO)
+set_target_properties(Halide_ImageIO PROPERTIES EXPORT_NAME ImageIO)
+
+foreach (LIB IN ITEMS PNG JPEG)
+    if (TARGET ${LIB}::${LIB})
+        target_link_libraries(Halide_ImageIO INTERFACE ${LIB}::${LIB})
+    else ()
+        message(STATUS "${LIB} not found; compiling with -DHALIDE_NO_${LIB}")
+        target_compile_definitions(Halide_ImageIO INTERFACE HALIDE_NO_${LIB})
+    endif ()
+endforeach ()
+
+##
+# Utility targets meant for users
+##
+
+include(GNUInstallDirs)
+
+add_library(Halide_RunGenMain INTERFACE)
+add_library(Halide::RunGenMain ALIAS Halide_RunGenMain)
+target_sources(Halide_RunGenMain
+               INTERFACE
+               $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/RunGenMain.cpp>
+               $<INSTALL_INTERFACE:${CMAKE_INSTALL_DATADIR}/tools/RunGenMain.cpp>)
+target_link_libraries(Halide_RunGenMain INTERFACE Halide::Halide Halide::ImageIO Threads::Threads ${CMAKE_DL_LIBS})
+set_target_properties(Halide_RunGenMain PROPERTIES EXPORT_NAME RunGenMain)
+
+add_library(Halide_Generator INTERFACE)
+add_library(Halide::Generator ALIAS Halide_Generator)
+target_sources(Halide_Generator
+               INTERFACE
+               $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/GenGen.cpp>
+               $<INSTALL_INTERFACE:${CMAKE_INSTALL_DATADIR}/tools/GenGen.cpp>)
+target_link_libraries(Halide_Generator INTERFACE Halide::Halide Threads::Threads ${CMAKE_DL_LIBS})
+set_target_properties(Halide_Generator PROPERTIES EXPORT_NAME Generator)
+
+add_library(Halide_Tools INTERFACE)
+add_library(Halide::Tools ALIAS Halide_Tools)
+target_include_directories(Halide_Tools
+                           INTERFACE
+                           $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+                           $<INSTALL_INTERFACE:${CMAKE_INSTALL_DATADIR}/tools>)
+set_target_properties(Halide_Tools PROPERTIES EXPORT_NAME Tools)
