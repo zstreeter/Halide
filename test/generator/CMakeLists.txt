@@ -1,4 +1,4 @@
-#include(HalideGeneratorHelpers)
+include(HalideGeneratorHelpers)
 
 ##
 # Convenience method for defining test cases in this directory.
@@ -12,22 +12,7 @@ function(halide_define_aot_test NAME)
 
     set(TARGET "generator_aot_${NAME}")
     add_executable("${TARGET}" "${NAME}_aottest.cpp")
-    target_include_directories("${TARGET}" PRIVATE
-                               "${CMAKE_SOURCE_DIR}/tools"
-                               "${CMAKE_SOURCE_DIR}"
-                               "${CMAKE_SOURCE_DIR}/src/runtime")
-
-    if (NOT ${args_OMIT_DEFAULT_GENERATOR})
-        halide_library_from_generator("${NAME}"
-                                      GENERATOR "${NAME}.generator"
-                                      FUNCTION_NAME "${args_FUNCTION_NAME}"
-                                      HALIDE_TARGET "${args_HALIDE_TARGET}"
-                                      HALIDE_TARGET_FEATURES "${args_HALIDE_TARGET_FEATURES}"
-                                      GENERATOR_ARGS "${args_GENERATOR_ARGS}"
-                                      FILTER_DEPS "${args_FILTER_DEPS}")
-        target_link_libraries("${TARGET}" PUBLIC "${NAME}")
-    endif ()
-
+    target_link_libraries(${TARGET} PRIVATE Halide::Halide ${NAME} ${CMAKE_DL_LIBS} Threads::Threads)
     add_halide_test("${TARGET}" GROUPS generator travis)
 endfunction(halide_define_aot_test)
 
@@ -71,95 +56,13 @@ set(GENERATOR_SRCS
     pyramid_generator.cpp
     rdom_input_generator.cpp
     string_param_generator.cpp
-    stubtest_generator.cpp
-    stubuser_generator.cpp
+    #    stubtest_generator.cpp
+    #    stubuser_generator.cpp
     tiled_blur_generator.cpp
     user_context_generator.cpp
     user_context_insanity_generator.cpp
     variable_num_threads_generator.cpp
     )
-
-function(add_generator_stubs TARGET)
-    set(options)
-    set(oneValueArgs FOR GENERATOR FUNCTION_NAME)
-    set(multiValueArgs PARAMS EXTRA_OUTPUTS TARGETS FEATURES)
-    cmake_parse_arguments(ARG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
-
-    if (NOT ARG_FOR)
-        message(FATAL_ERROR "Missing FOR argument specifying a Halide generator target")
-    endif ()
-
-    if (NOT ARG_GENERATOR)
-        get_target_property(ARG_GENERATOR ${ARG_FOR} NAME)
-        string(REPLACE ".generator" "" ARG_GENERATOR "${ARG_GENERATOR}")
-    endif ()
-
-    set(TARGET_NAME "${TARGET}")
-
-    add_custom_command(OUTPUT "${TARGET_NAME}.stub.h"
-                       COMMAND "${ARG_FOR}" -g "${ARG_GENERATOR}" -o . -e cpp_stub -n "${ARG_GENERATOR}"
-                       DEPENDS "${ARG_FOR}")
-
-    add_custom_target("${TARGET_NAME}.stub.update"
-                      DEPENDS
-                      "${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}.stub.h"
-                      )
-
-    add_library("${TARGET}" INTERFACE)
-    target_sources("${TARGET}" INTERFACE "${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}.stub.h")
-    target_include_directories("${TARGET}" INTERFACE "${CMAKE_CURRENT_BINARY_DIR}")
-    add_dependencies("${TARGET}" "${TARGET_NAME}.stub.update")
-endfunction()
-
-# TODO: investigate storing these options in properties
-function(add_halide_library TARGET)
-    set(options)
-    set(oneValueArgs FROM GENERATOR FUNCTION_NAME)
-    set(multiValueArgs PARAMS EXTRA_OUTPUTS TARGETS FEATURES)
-    cmake_parse_arguments(ARG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
-
-    if (NOT ARG_FROM)
-        message(FATAL_ERROR "Missing FROM argument specifying a Halide generator target")
-    endif ()
-
-    if (NOT ARG_GENERATOR)
-        set(ARG_GENERATOR "${TARGET}")
-    endif ()
-
-    if (NOT ARG_FUNCTION_NAME)
-        set(ARG_FUNCTION_NAME "${ARG_GENERATOR}")
-    endif ()
-
-    if (NOT ARG_TARGETS)
-        set(ARG_TARGETS host)
-    else ()
-        string(REPLACE ";" "," ARG_TARGETS "${ARG_TARGETS}")
-    endif ()
-
-    # TODO: handle extra outputs and features.
-
-    ##
-    # Main library target for filter.
-    ##
-
-    add_custom_command(OUTPUT
-                       "${ARG_FUNCTION_NAME}.a"
-                       "${ARG_FUNCTION_NAME}.h"
-                       "${ARG_FUNCTION_NAME}.registration.cpp"
-                       COMMAND "${ARG_FROM}" -g "${ARG_GENERATOR}" -f "${ARG_FUNCTION_NAME}" -o . target=${ARG_TARGETS} ${ARG_PARAMS}
-                       DEPENDS "${ARG_FROM}")
-
-    add_custom_target("${ARG_FUNCTION_NAME}.update"
-                      DEPENDS
-                      "${CMAKE_CURRENT_BINARY_DIR}/${ARG_FUNCTION_NAME}.a"
-                      "${CMAKE_CURRENT_BINARY_DIR}/${ARG_FUNCTION_NAME}.h"
-                      "${CMAKE_CURRENT_BINARY_DIR}/${ARG_FUNCTION_NAME}.registration.cpp"
-                      )
-
-    add_library("${TARGET}" STATIC IMPORTED)
-    set_target_properties("${ARG_FUNCTION_NAME}" PROPERTIES IMPORTED_LOCATION "${CMAKE_CURRENT_BINARY_DIR}/${ARG_FUNCTION_NAME}.a")
-    add_dependencies("${TARGET}" "${ARG_FUNCTION_NAME}.update")
-endfunction()
 
 set(PARAMS_stubtest
     untyped_buffer_input.type=uint8 untyped_buffer_input.dim=3
@@ -188,10 +91,10 @@ add_halide_library(nested_externs_inner FROM nested_externs.generator)
 add_halide_library(nested_externs_combine FROM nested_externs.generator)
 add_halide_library(nested_externs_leaf FROM nested_externs.generator)
 
-add_generator_stubs(stubtest_stubs FOR stubtest.generator)
-add_generator_stubs(configure_stubs FOR configure.generator)
-
-target_link_libraries(stubuser.generator PRIVATE stubtest_stubs configure_stubs)
+#add_generator_stubs(stubtest_stubs FOR stubtest.generator)
+#add_generator_stubs(configure_stubs FOR configure.generator)
+#
+#target_link_libraries(stubuser.generator PRIVATE stubtest_stubs configure_stubs)
 target_link_libraries(external_code.generator PRIVATE external_code_generator_deps)
 
 ##
@@ -223,20 +126,19 @@ add_custom_command(OUTPUT "${ECCPP}.cpp"
 
 add_library(external_code_generator_deps OBJECT "${EC32}.cpp" "${EC64}.cpp" "${ECCPP}.cpp")
 
-return()
-
 ##
 # Generator tests for just-in-time mode
+# TODO: these depend on stubs.
 ##
 
 # Find all the files of form "foo_jittest.cpp" in test/generator
 # and declare a rule for them, each of which depends on foo.generator.
 set(JITTEST_SRCS
-    configure_jittest.cpp
-    example_jittest.cpp
-    stubtest_jittest.cpp
+    #    configure_jittest.cpp
+    #    example_jittest.cpp
+    #    stubtest_jittest.cpp
     )
-foreach (FILE ${JITTEST_SRCS})
+foreach (FILE IN LISTS JITTEST_SRCS)
     string(REPLACE "_jittest.cpp" "" NAME "${FILE}")
 
     set(TARGET "generator_jit_${NAME}")
@@ -259,7 +161,7 @@ endforeach ()
 halide_define_aot_test(acquire_release)
 halide_define_aot_test(argvcall)
 halide_define_aot_test(can_use_target)
-halide_define_aot_test(cleanup_on_error)
+#halide_define_aot_test(cleanup_on_error) # requires access to internal header runtime/device_interface.h
 halide_define_aot_test(configure)
 halide_define_aot_test(define_extern_opencl)
 halide_define_aot_test(embed_image)
@@ -269,10 +171,12 @@ halide_define_aot_test(float16_t)
 halide_define_aot_test(gpu_only)
 halide_define_aot_test(image_from_array)
 halide_define_aot_test(mandelbrot)
-halide_define_aot_test(stubuser)
+#halide_define_aot_test(stubuser)  # uses stubs, which are currently not implemented
 halide_define_aot_test(variable_num_threads)
 halide_define_aot_test(output_assign)
 halide_define_aot_test(external_code)
+
+return()
 
 # Tests that require nonstandard targets, namespaces, args, etc.
 halide_define_aot_test(matlab HALIDE_TARGET_FEATURES matlab)
