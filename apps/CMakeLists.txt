@@ -1,6 +1,8 @@
 ##
-# Test apps from the perspective of a consuming project. Each of these
+# Test apps from the perspective of a consuming project.
 ##
+
+# Set up a test fixture for installing the main project into a build directory
 
 set(HALIDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/_Halide_install")
 
@@ -16,33 +18,41 @@ function(add_app_test NAME)
              COMMAND ${CMAKE_CTEST_COMMAND}
              --build-and-test "${CMAKE_CURRENT_SOURCE_DIR}/${NAME}" "${CMAKE_CURRENT_BINARY_DIR}/${NAME}"
              --build-generator ${CMAKE_GENERATOR}
-             --build-options "-DCMAKE_PREFIX_PATH=${HALIDE_DIR}"
+             --build-options "-DCMAKE_PREFIX_PATH=${HALIDE_DIR}" "-DCMAKE_BUILD_TYPE=Release"
              --test-command ${CMAKE_CTEST_COMMAND})
     set_tests_properties(${NAME} PROPERTIES FIXTURES_REQUIRED apps LABELS apps)
 endfunction()
 
-# TODO: deprecated as of CMake 3.17. Replace "remove_directory" with "rm -rf" instead (which was introduced in 3.17).
-add_test(NAME delete_halide_distrib
-         COMMAND ${CMAKE_COMMAND} -E remove_directory "${HALIDE_DIR}")
+option(CLEANUP_AFTER_APPS "Delete the install directory after running apps build fixture (useful to disable for debugging)" ON)
+if (CLEANUP_AFTER_APPS)
+    # TODO: "remove_directory" deprecated and replaced by "rm -rf" as of CMake 3.17.
+    add_test(NAME delete_halide_distrib
+             COMMAND ${CMAKE_COMMAND} -E remove_directory "${HALIDE_DIR}")
+    set_tests_properties(delete_halide_distrib PROPERTIES FIXTURES_CLEANUP apps)
+endif ()
 
-set_tests_properties(delete_halide_distrib PROPERTIES FIXTURES_CLEANUP apps)
+# Actually add the apps
 
-#add_app_test(autoscheduler)
-#add_app_test(bilateral_grid)
-#add_app_test(blur)
-#add_app_test(c_backend)
-#add_app_test(camera_pipe)
-#add_app_test(conv_layer)
-#add_app_test(glsl)
-#add_app_test(harris)
-#add_app_test(iir_blur)
-#add_app_test(interpolate)
-#add_app_test(lens_blur)
-#add_app_test(linear_algebra)
-#add_app_test(linear_blur)
-#add_app_test(local_laplacian)
-#add_app_test(nl_means)
-#add_app_test(resize)
-#add_app_test(stencil_chain)
-#add_app_test(unsharp)
+#add_app_test(autoscheduler)  # TODO: reorganize into module
+add_app_test(bgu)
+add_app_test(bilateral_grid)
+add_app_test(blur)
+#add_app_test(c_backend)  # TODO: implement support for the C backend.
+add_app_test(camera_pipe)
+add_app_test(conv_layer)
+add_app_test(cuda_mat_mul)
+#add_app_test(glsl)  # TODO: bugged on my computer; not built by Makefile
+add_app_test(harris)
+add_app_test(hist)
+add_app_test(iir_blur)
+add_app_test(interpolate)
+add_app_test(lens_blur)
+#add_app_test(linear_algebra)  # TODO: halide blas has issues; see #4631
+#add_app_test(linear_blur)  # TODO: uses stubs, for which we're dropping support
+add_app_test(local_laplacian)
+add_app_test(max_filter)
+add_app_test(nl_means)
+add_app_test(resize)
+add_app_test(stencil_chain)
+add_app_test(unsharp)
 add_app_test(wavelet)

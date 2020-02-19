@@ -6,7 +6,7 @@ if (${CMAKE_FIND_PACKAGE_NAME}_FIND_COMPONENTS)
     set(${CMAKE_FIND_PACKAGE_NAME}_comps ${${CMAKE_FIND_PACKAGE_NAME}_FIND_COMPONENTS})
 else ()
     # Try to include all components optionally by default
-    set(${CMAKE_FIND_PACKAGE_NAME}_comps ${known_components})
+    set(${CMAKE_FIND_PACKAGE_NAME}_comps ${${CMAKE_FIND_PACKAGE_NAME}_known_components})
 endif ()
 
 # Allow people to specify explicitly that they only want Halide

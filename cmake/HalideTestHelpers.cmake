@@ -76,6 +76,9 @@ function(tests)
 
         add_executable("${TARGET}" "${file}")
         target_link_libraries("${TARGET}" PRIVATE Halide::Test)
+        if (COMMAND target_precompile_headers AND "${file}" MATCHES ".cpp$")
+            target_precompile_headers("${TARGET}" REUSE_FROM _test_internal)
+        endif ()
 
         if (args_EXPECT_FAILURE)
             add_halide_test("${TARGET}" GROUPS ${args_GROUPS} EXPECT_FAILURE)

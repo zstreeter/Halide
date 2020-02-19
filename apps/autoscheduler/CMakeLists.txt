@@ -51,27 +51,27 @@ add_library(auto_schedule
             Weights.cpp
             ${WF_CPP})
 
-if(HALIDE_LIBRARY_TYPE STREQUAL STATIC)
-  target_link_libraries(auto_schedule PRIVATE cost_model train_cost_model)
-else()
-  target_link_libraries(auto_schedule
-                        PRIVATE cost_model train_cost_model Halide)
-endif()
+if (HALIDE_LIBRARY_TYPE STREQUAL STATIC)
+    target_link_libraries(auto_schedule PRIVATE cost_model train_cost_model)
+else ()
+    target_link_libraries(auto_schedule
+                          PRIVATE cost_model train_cost_model Halide)
+endif ()
 
-if(NOT MSVC)
-  set_target_properties(auto_schedule PROPERTIES LINK_FLAGS "-rdynamic")
-elseif(APPLE)
-  set_target_properties(auto_schedule
-                        PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
-endif()
+if (NOT MSVC)
+    set_target_properties(auto_schedule PROPERTIES LINK_FLAGS "-rdynamic")
+elseif (APPLE)
+    set_target_properties(auto_schedule
+                          PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
+endif ()
 
-if(NOT HALIDE_ENABLE_RTTI)
-  if(NOT MSVC)
-    target_compile_options(auto_schedule PRIVATE "-fno-rtti")
-  else()
-    target_compile_options(auto_schedule PRIVATE "/GR-")
-  endif()
-endif()
+if (NOT HALIDE_ENABLE_RTTI)
+    if (NOT MSVC)
+        target_compile_options(auto_schedule PRIVATE "-fno-rtti")
+    else ()
+        target_compile_options(auto_schedule PRIVATE "/GR-")
+    endif ()
+endif ()
 
 install(TARGETS auto_schedule LIBRARY DESTINATION bin)
 
@@ -90,17 +90,17 @@ set(DEMO_REGISTRATION_FILE ${GENFILES_DIR}/demo.registration.cpp)
 add_executable(demo_apps_autoscheduler ${HALIDE_TOOLS_DIR}/RunGenMain.cpp
                ${DEMO_REGISTRATION_FILE})
 target_include_directories(
-  demo_apps_autoscheduler
-  PRIVATE "${HALIDE_INCLUDE_DIR}" "${HALIDE_TOOLS_DIR}")
+        demo_apps_autoscheduler
+        PRIVATE "${HALIDE_INCLUDE_DIR}" "${HALIDE_TOOLS_DIR}")
 target_link_libraries(demo_apps_autoscheduler PRIVATE Halide::ImageIO)
 target_link_libraries(demo_apps_autoscheduler PRIVATE demo)
 add_dependencies(demo_apps_autoscheduler demo auto_schedule)
 
 add_custom_command(TARGET demo_apps_autoscheduler POST_BUILD
                    COMMAND demo_apps_autoscheduler
-                           --benchmarks=all
-                           --benchmark_min_time=1
-                           --estimate_all
+                   --benchmarks=all
+                   --benchmark_min_time=1
+                   --estimate_all
                    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
 # =======================================================
@@ -119,17 +119,17 @@ set(INCLUDED_SCHEDULE_FILE_REGISTRATION_FILE
 add_executable(demo_included_schedule_file ${HALIDE_TOOLS_DIR}/RunGenMain.cpp
                ${INCLUDED_SCHEDULE_FILE_REGISTRATION_FILE})
 target_include_directories(
-  demo_included_schedule_file
-  PRIVATE "${HALIDE_INCLUDE_DIR}" "${HALIDE_TOOLS_DIR}")
+        demo_included_schedule_file
+        PRIVATE "${HALIDE_INCLUDE_DIR}" "${HALIDE_TOOLS_DIR}")
 target_link_libraries(demo_included_schedule_file PRIVATE Halide::ImageIO included_schedule_file)
 add_dependencies(demo_included_schedule_file included_schedule_file
                  auto_schedule)
 
 add_custom_command(TARGET demo_included_schedule_file POST_BUILD
                    COMMAND demo_included_schedule_file
-                           --benchmarks=all
-                           --benchmark_min_time=1
-                           --estimate_all
+                   --benchmarks=all
+                   --benchmark_min_time=1
+                   --estimate_all
                    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
 # =======================================================
@@ -142,19 +142,19 @@ target_link_libraries(get_host_target PRIVATE Halide)
 
 add_executable(test_apps_autoscheduler test.cpp)
 target_include_directories(
-  test_apps_autoscheduler
-  PRIVATE "${HALIDE_INCLUDE_DIR}" "${HALIDE_TOOLS_DIR}")
+        test_apps_autoscheduler
+        PRIVATE "${HALIDE_INCLUDE_DIR}" "${HALIDE_TOOLS_DIR}")
 target_link_libraries(test_apps_autoscheduler PRIVATE Halide)
 if (NOT WIN32)
-  target_link_libraries(test_apps_autoscheduler PRIVATE dl)
-endif()
+    target_link_libraries(test_apps_autoscheduler PRIVATE dl)
+endif ()
 
 add_executable(test_perfect_hash_map test_perfect_hash_map.cpp)
 
 add_executable(test_function_dag test_function_dag.cpp FunctionDAG.cpp ASLog.cpp)
 target_include_directories(
-  test_function_dag
-  PRIVATE "${HALIDE_INCLUDE_DIR}" "${HALIDE_TOOLS_DIR}")
+        test_function_dag
+        PRIVATE "${HALIDE_INCLUDE_DIR}" "${HALIDE_TOOLS_DIR}")
 target_link_libraries(test_function_dag PRIVATE Halide)
 
 add_executable(weightsdir_to_weightsfile weightsdir_to_weightsfile.cpp

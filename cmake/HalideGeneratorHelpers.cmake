@@ -45,11 +45,30 @@ function(add_halide_library TARGET)
     endif ()
 
     if (NOT ARG_FUNCTION_NAME)
-        set(ARG_FUNCTION_NAME "${ARG_GENERATOR}")
+        set(ARG_FUNCTION_NAME "${TARGET}")
     endif ()
 
     if (NOT ARG_TARGETS)
         set(ARG_TARGETS host)
+    endif ()
+
+    if (opengl IN_LIST ARG_FEATURES)
+        if (NOT TARGET X11::X11)
+            message(AUTHOR_WARNING "OpenGL with Halide requires target X11::X11. Attempting to find_package(X11) and create target X11::X11.")
+
+            find_package(X11 QUIET REQUIRED)
+            add_library(Halide_Generator_Helpers_X11 INTERFACE)
+            add_library(X11::X11 ALIAS Halide_Generator_Helpers_X11)
+            target_link_libraries(Halide_Generator_Helpers_X11 INTERFACE ${X11_LIBRARIES})
+            target_include_directories(Halide_Generator_Helpers_X11 INTERFACE ${X11_INCLUDE_DIR})
+        endif ()
+
+        if (NOT TARGET OpenGL::GL)
+            message(AUTHOR_WARNING "OpenGL with Halide requires target OpenGL::GL. Attempting to find_package(OpenGL).")
+            find_package(OpenGL QUIET REQUIRED)
+        endif ()
+
+        set(EXTRA_RT_LIBS OpenGL::GL X11::X11)
     endif ()
 
     set(TARGETS)
@@ -69,7 +88,8 @@ function(add_halide_library TARGET)
         target_link_libraries("${TARGET}.runtime"
                               INTERFACE
                               Threads::Threads
-                              ${CMAKE_DL_LIBS})
+                              ${CMAKE_DL_LIBS}
+                              ${EXTRA_RT_LIBS})
         set_target_properties("${TARGET}.runtime"
                               PROPERTIES
                               IMPORTED_LOCATION "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.runtime${CMAKE_STATIC_LIBRARY_SUFFIX}")

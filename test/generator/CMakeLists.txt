@@ -224,7 +224,6 @@ add_halide_library(autograd_grad
                    GRADIENT_DESCENT
                    FROM autograd.generator
                    GENERATOR autograd
-                   FUNCTION_NAME autograd_grad
                    PARAMS "auto_schedule=true")
 target_link_libraries(generator_aot_autograd PRIVATE autograd_grad)
 
@@ -254,7 +253,6 @@ halide_define_aot_test(metadata_tester)
 add_halide_library(metadata_tester_ucon
                    FROM metadata_tester.generator
                    GENERATOR metadata_tester
-                   FUNCTION_NAME metadata_tester_ucon
                    FEATURES user_context
                    PARAMS ${PARAMS_metadata_tester})
 target_link_libraries(generator_aot_metadata_tester PRIVATE metadata_tester_ucon)

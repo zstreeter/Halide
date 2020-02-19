@@ -1,10 +1,14 @@
 include(HalideTestHelpers)
 
 # Internal tests are a special case.
+# HalideTestHelpers depends on this test being present.
 add_executable(_test_internal internal.cpp)
-target_link_libraries(_test_internal PRIVATE Halide::Halide)
+target_link_libraries(_test_internal PRIVATE Halide::Test)
 target_include_directories(_test_internal PRIVATE "${Halide_SOURCE_DIR}/src")
 add_halide_test(_test_internal GROUPS internal)
+if (COMMAND target_precompile_headers)
+    target_precompile_headers(_test_internal PRIVATE <Halide.h>)
+endif ()
 
 option(WITH_TEST_AUTO_SCHEDULE "Build auto_schedule tests" ON)
 if (WITH_TEST_AUTO_SCHEDULE)
