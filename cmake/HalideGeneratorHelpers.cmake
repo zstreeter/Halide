@@ -31,6 +31,31 @@ function(add_generator_stubs TARGET)
 endfunction()
 
 # TODO: investigate storing these options in properties
+define_property(TARGET PROPERTY HL_GEN_TARGET
+                BRIEF_DOCS "On a Halide library target, names the generator target used to create it"
+                FULL_DOCS "On a Halide library target, names the generator target used to create it")
+
+define_property(TARGET PROPERTY HL_FILTER_NAME
+                BRIEF_DOCS "On a Halide library target, names the filter this library corresponds to"
+                FULL_DOCS "On a Halide library target, names the filter this library corresponds to")
+
+define_property(TARGET PROPERTY HL_LIBNAME
+                BRIEF_DOCS "On a Halide library target, names the function it provides"
+                FULL_DOCS "On a Halide library target, names the function it provides")
+
+define_property(TARGET PROPERTY HL_RUNTIME
+                BRIEF_DOCS "On a Halide library target, names the runtime target it depends on"
+                FULL_DOCS "On a Halide library target, names the runtime target it depends on")
+
+define_property(TARGET PROPERTY HL_PARAMS
+                BRIEF_DOCS "On a Halide library target, lists the parameters used to configure the filter"
+                FULL_DOCS "On a Halide library target, lists the parameters used to configure the filter")
+
+define_property(TARGET PROPERTY HL_TARGET
+                BRIEF_DOCS "On a Halide library target, lists the runtime targets supported by the filter"
+                FULL_DOCS "On a Halide library target, lists the runtime targets supported by the filter")
+
+
 function(add_halide_library TARGET)
     set(options)
     set(oneValueArgs FROM GENERATOR FUNCTION_NAME)
@@ -61,6 +86,15 @@ function(add_halide_library TARGET)
     # Main library target for filter.
     ##
 
+    add_library("${TARGET}" STATIC IMPORTED)
+    set_target_properties("${TARGET}" PROPERTIES
+                          HL_GEN_TARGET "${ARG_FROM}"
+                          HL_FILTER_NAME "${ARG_GENERATOR}"
+                          HL_LIBNAME "${ARG_FUNCTION_NAME}"
+                          HL_PARAMS "${ARG_PARAMS}"
+                          HL_TARGET "${ARG_TARGET}"
+                          )
+
     add_custom_command(OUTPUT
                        "${ARG_FUNCTION_NAME}.a"
                        "${ARG_FUNCTION_NAME}.h"
@@ -75,7 +109,6 @@ function(add_halide_library TARGET)
                       "${CMAKE_CURRENT_BINARY_DIR}/${ARG_FUNCTION_NAME}.registration.cpp"
                       )
 
-    add_library("${TARGET}" STATIC IMPORTED)
     set_target_properties("${ARG_FUNCTION_NAME}" PROPERTIES IMPORTED_LOCATION "${CMAKE_CURRENT_BINARY_DIR}/${ARG_FUNCTION_NAME}.a")
     target_include_directories("${TARGET}" INTERFACE "${CMAKE_CURRENT_BINARY_DIR}")
     add_dependencies("${TARGET}" "${ARG_FUNCTION_NAME}.update")
