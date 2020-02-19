@@ -241,27 +241,23 @@ public:
             // is movshdup, addps, movhlps, addss. haddps is still
             // good if you're only partially reducing and your result
             // is at least one native vector, if only to save code
-            // size.
+            // size, but LLVM really really tries to avoid it and
+            // replace it with shuffles whenever it can, so we won't
+            // test for it.
             //
             // See:
             // https://stackoverflow.com/questions/6996764/fastest-way-to-do-horizontal-float-vector-sum-on-x86
-            //
-            // We therefore only expect to see horizontal adds for
-            // output types that are at least one native vector:
-            for (int f : {2, 4}) {
-                RDom r(0, f);
-                check("haddps", 8, sum(in_f32(r + f * x)));
-                check("haddpd", 4, sum(in_f64(r + f * x)));
-            }
 
-            // For reducing down to a scalar we expect to see addps and movshdup.
+            // For reducing down to a scalar we expect to see addps
+            // and movshdup. We'll sniff for the movshdup.
             check("movshdup", 1, sum(in_f32(RDom(0, 2) + 2 * x)));
             check("movshdup", 1, sum(in_f32(RDom(0, 4) + 4 * x)));
             check("movshdup", 1, sum(in_f32(RDom(0, 16) + 16 * x)));
 
             // The integer horizontal add operations are pretty
             // terrible on all x86 variants, and LLVM does its best to
-            // avoid generating them, so we won't test that here.
+            // avoid generating those too, so we won't test that here
+            // either.
 
             // Min reductions should use phminposuw when
             // possible. This only exists for u16. X86 is weird.
