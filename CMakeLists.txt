@@ -77,7 +77,7 @@ if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
         message(STATUS "Building docs disabled")
     endif ()
 
-    option(WITH_UTILS "Build utils" OFF)
+    option(WITH_UTILS "Build utils" ON)
     if (WITH_UTILS)
         message(STATUS "Building utils enabled")
         add_subdirectory(util)
