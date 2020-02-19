@@ -74,14 +74,24 @@ function(add_halide_library TARGET)
 
     if (NOT ARG_TARGETS)
         set(ARG_TARGETS host)
-    else ()
-        string(REPLACE ";" "," ARG_TARGETS "${ARG_TARGETS}")
     endif ()
+
+    set(TARGETS)
+    foreach (T IN LISTS ARG_TARGETS)
+        if (NOT T)
+            set(T host)
+        endif ()
+        foreach (F IN LISTS ARG_FEATURES)
+            set(T "${T}-${F}")
+        endforeach ()
+        list(APPEND TARGETS "${T}-no_runtime")
+    endforeach ()
+    string(REPLACE ";" "," TARGETS "${TARGETS}")
 
     if (NOT ARG_USE_RUNTIME)
         add_library("${TARGET}.runtime" STATIC IMPORTED)
         add_custom_command(OUTPUT "${TARGET}.runtime.a"
-                           COMMAND "${ARG_FROM}" -r "${TARGET}.runtime" -o . target=${ARG_TARGETS})
+                           COMMAND "${ARG_FROM}" -r "${TARGET}.runtime" -o . target=${TARGETS})
         add_custom_target("${TARGET}.runtime.update"
                           DEPENDS "${TARGET}.runtime.a")
         set_target_properties("${TARGET}.runtime" PROPERTIES IMPORTED_LOCATION "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.runtime.a")
@@ -102,22 +112,22 @@ function(add_halide_library TARGET)
                           HL_FILTER_NAME "${ARG_GENERATOR}"
                           HL_LIBNAME "${ARG_FUNCTION_NAME}"
                           HL_PARAMS "${ARG_PARAMS}"
-                          HL_TARGET "${ARG_TARGET}")
+                          HL_TARGET "${TARGETS}")
 
     add_custom_command(OUTPUT
-                       "${ARG_FUNCTION_NAME}.a"
-                       "${ARG_FUNCTION_NAME}.h"
-                       "${ARG_FUNCTION_NAME}.registration.cpp"
-                       COMMAND "${ARG_FROM}" -g "${ARG_GENERATOR}" -f "${ARG_FUNCTION_NAME}" -o . target=${ARG_TARGETS} ${ARG_PARAMS}
+                       "${TARGET}.a"
+                       "${TARGET}.h"
+                       "${TARGET}.registration.cpp"
+                       COMMAND "${ARG_FROM}" -n "${TARGET}" -g "${ARG_GENERATOR}" -f "${ARG_FUNCTION_NAME}" -o . target=${TARGETS} ${ARG_PARAMS}
                        DEPENDS "${ARG_FROM}")
 
-    add_custom_target("${ARG_FUNCTION_NAME}.update"
+    add_custom_target("${TARGET}.update"
                       DEPENDS
                       "${CMAKE_CURRENT_BINARY_DIR}/${ARG_FUNCTION_NAME}.a"
                       "${CMAKE_CURRENT_BINARY_DIR}/${ARG_FUNCTION_NAME}.h"
                       "${CMAKE_CURRENT_BINARY_DIR}/${ARG_FUNCTION_NAME}.registration.cpp")
 
-    set_target_properties("${ARG_FUNCTION_NAME}" PROPERTIES IMPORTED_LOCATION "${CMAKE_CURRENT_BINARY_DIR}/${ARG_FUNCTION_NAME}.a")
+    set_target_properties("${TARGET}" PROPERTIES IMPORTED_LOCATION "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.a")
     add_dependencies("${TARGET}" "${ARG_FUNCTION_NAME}.update")
 
     target_include_directories("${TARGET}" INTERFACE "${CMAKE_CURRENT_BINARY_DIR}")
