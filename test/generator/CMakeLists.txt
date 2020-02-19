@@ -165,6 +165,10 @@ add_halide_library(autograd_grad
                    FUNCTION_NAME autograd_grad
                    PARAMS "auto_schedule=true")
 
+add_halide_library(alias_with_offset_42
+                   FROM alias.generator
+                   GENERATOR alias_with_offset_42)
+
 ##
 # Define a nontrivial dependency for external_code.generator
 ##
@@ -223,6 +227,9 @@ halide_define_aot_test(user_context)
 halide_define_aot_test(user_context_insanity)
 halide_define_aot_test(variable_num_threads)
 
+halide_define_aot_test(alias)
+target_link_libraries(generator_aot_alias PRIVATE alias_with_offset_42)
+
 halide_define_aot_test(autograd)
 target_link_libraries(generator_aot_autograd PRIVATE autograd_grad)
 
@@ -243,13 +250,6 @@ if (TARGET_PTX)
                                   HALIDE_TARGET_FEATURES c_plus_plus_name_mangling cuda)
     target_link_libraries(generator_aot_cxx_mangling PRIVATE cxx_mangling_gpu)
 endif ()
-
-# Needs an extra library from this Generator
-halide_define_aot_test(alias)
-halide_library(alias_with_offset_42
-               SRCS alias_generator.cpp
-               GENERATOR_NAME alias_with_offset_42)
-target_link_libraries(generator_aot_alias PUBLIC alias_with_offset_42)
 
 halide_define_aot_test(tiled_blur)
 halide_library_from_generator(blur2x2)
