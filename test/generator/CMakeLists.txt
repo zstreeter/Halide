@@ -6,14 +6,17 @@ include(HalideGeneratorHelpers)
 
 function(halide_define_aot_test NAME)
     set(options OMIT_DEFAULT_GENERATOR)
-    set(oneValueArgs FUNCTION_NAME HALIDE_TARGET)
-    set(multiValueArgs GENERATOR_ARGS DEPS FILTER_DEPS HALIDE_TARGET_FEATURES)
+    set(oneValueArgs)
+    set(multiValueArgs)
     cmake_parse_arguments(args "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
     set(TARGET "generator_aot_${NAME}")
     add_executable("${TARGET}" "${NAME}_aottest.cpp")
     target_include_directories("${TARGET}" PRIVATE "${Halide_SOURCE_DIR}/test/common")
-    target_link_libraries(${TARGET} PRIVATE Halide::Halide ${NAME} ${CMAKE_DL_LIBS} Threads::Threads)
+    target_link_libraries(${TARGET} PRIVATE Halide::Halide ${CMAKE_DL_LIBS} Threads::Threads)
+    if (NOT args_OMIT_DEFAULT_GENERATOR)
+        target_link_libraries(${TARGET} PRIVATE ${NAME})
+    endif ()
     add_halide_test("${TARGET}" GROUPS generator travis)
 endfunction(halide_define_aot_test)
 
@@ -65,10 +68,14 @@ set(GENERATOR_SRCS
 
 # Common extra functionality needed by certain tests.
 add_library(cxx_mangling_externs STATIC cxx_mangling_externs.cpp)
+add_library(cxx_mangling_define_extern_externs STATIC cxx_mangling_define_extern_externs.cpp)
 
 # Special configuration for various tests.
 set(FN_NAME_cxx_mangling HalideTest::AnotherNamespace::cxx_mangling)
 set(FEATURES_cxx_mangling c_plus_plus_name_mangling)
+
+set(FN_NAME_cxx_mangling_define_extern HalideTest::cxx_mangling_define_extern)
+set(FEATURES_cxx_mangling_define_extern c_plus_plus_name_mangling user_context)
 
 set(FEATURES_gpu_object_lifetime debug)
 
@@ -143,6 +150,8 @@ foreach (FILE ${GENERATOR_SRCS})
 endforeach ()
 
 target_link_libraries(cxx_mangling INTERFACE cxx_mangling_externs)
+
+target_link_libraries(cxx_mangling_define_extern INTERFACE cxx_mangling_externs cxx_mangling_define_extern_externs)
 
 target_link_libraries(external_code.generator PRIVATE external_code_generator_deps)
 
@@ -239,7 +248,21 @@ set_target_properties(generator_aot_matlab PROPERTIES ENABLE_EXPORTS True)
 halide_define_aot_test(metadata_tester)
 target_link_libraries(generator_aot_metadata_tester PRIVATE metadata_tester_ucon)
 
+halide_define_aot_test(tiled_blur)
+target_link_libraries(generator_aot_tiled_blur PRIVATE blur2x2)
+
 #halide_define_aot_test(multitarget)  # see issue #4619
+
+halide_define_aot_test(cxx_mangling_define_extern)
+target_link_libraries(cxx_mangling_define_extern_externs PRIVATE cxx_mangling_externs cxx_mangling)
+
+halide_define_aot_test(nested_externs OMIT_DEFAULT_GENERATOR)
+target_link_libraries(generator_aot_nested_externs
+                      PRIVATE
+                      nested_externs_root
+                      nested_externs_inner
+                      nested_externs_combine
+                      nested_externs_leaf)
 
 return()
 
@@ -250,24 +273,3 @@ if (TARGET_PTX)
                                   HALIDE_TARGET_FEATURES c_plus_plus_name_mangling cuda)
     target_link_libraries(generator_aot_cxx_mangling PRIVATE cxx_mangling_gpu)
 endif ()
-
-halide_define_aot_test(tiled_blur)
-halide_library_from_generator(blur2x2)
-target_link_libraries(generator_aot_tiled_blur PUBLIC blur2x2)
-
-add_library(cxx_mangling_define_extern_externs STATIC cxx_mangling_define_extern_externs.cpp)
-target_link_libraries(cxx_mangling_define_extern_externs PRIVATE cxx_mangling_externs cxx_mangling)
-
-halide_define_aot_test(cxx_mangling_define_extern
-                       HALIDE_TARGET_FEATURES c_plus_plus_name_mangling user_context
-                       FUNCTION_NAME HalideTest::cxx_mangling_define_extern
-                       FILTER_DEPS cxx_mangling_externs cxx_mangling_define_extern_externs)
-# The cxx_mangling library was already defined implicitly, above,
-# so just add a dependency on it
-target_link_libraries(generator_aot_cxx_mangling_define_extern PUBLIC cxx_mangling)
-
-halide_define_aot_test(nested_externs OMIT_DEFAULT_GENERATOR)
-foreach (G root inner combine leaf)
-    halide_library_from_generator(nested_externs_${G})
-    target_link_libraries(generator_aot_nested_externs PRIVATE nested_externs_${G})
-endforeach ()
