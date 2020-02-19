@@ -204,7 +204,6 @@ public:
 }  // namespace
 
 Stmt split_tuples(Stmt s, const map<string, Function> &env) {
-    s = common_subexpression_elimination(s);
     return SplitTuples(env).mutate(s);
 }
 
