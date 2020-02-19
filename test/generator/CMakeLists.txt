@@ -76,6 +76,38 @@ set(FEATURES_matlab matlab)
 
 set(FEATURES_memory_profiler_mandelbrot profile)
 
+set(PARAMS_metadata_tester
+    input.type=uint8 input.dim=3
+    dim_only_input_buffer.type=uint8
+    untyped_input_buffer.type=uint8 untyped_input_buffer.dim=3
+    output.type=float32,float32 output.dim=3
+    input_not_nod.type=uint8 input_not_nod.dim=3
+    input_nod.dim=3
+    input_not.type=uint8
+    array_input.size=2
+    array_i8.size=2
+    array_i16.size=2
+    array_i32.size=2
+    array_h.size=2
+    buffer_array_input2.dim=3
+    buffer_array_input3.type=float32
+    buffer_array_input4.dim=3
+    buffer_array_input4.type=float32
+    buffer_array_input5.size=2
+    buffer_array_input6.size=2
+    buffer_array_input6.dim=3
+    buffer_array_input7.size=2
+    buffer_array_input7.type=float32
+    buffer_array_input8.size=2
+    buffer_array_input8.dim=3
+    buffer_array_input8.type=float32
+    buffer_f16_untyped.type=float16
+    array_outputs.size=2
+    array_outputs7.size=2
+    array_outputs8.size=2
+    array_outputs9.size=2
+    )
+
 set(FEATURES_msan msan)
 
 set(HL_TARGET_multitarget host host-debug)
@@ -117,6 +149,13 @@ add_halide_library(nested_externs_root FROM nested_externs.generator)
 add_halide_library(nested_externs_inner FROM nested_externs.generator)
 add_halide_library(nested_externs_combine FROM nested_externs.generator)
 add_halide_library(nested_externs_leaf FROM nested_externs.generator)
+
+add_halide_library(metadata_tester_ucon
+                   FROM metadata_tester.generator
+                   GENERATOR metadata_tester
+                   FUNCTION_NAME metadata_tester_ucon
+                   FEATURES user_context
+                   PARAMS ${PARAMS_metadata_tester})
 
 ##
 # Define a nontrivial dependency for external_code.generator
@@ -181,6 +220,9 @@ halide_define_aot_test(variable_num_threads)
 halide_define_aot_test(matlab)
 set_target_properties(generator_aot_matlab PROPERTIES ENABLE_EXPORTS True)
 
+halide_define_aot_test(metadata_tester)
+target_link_libraries(generator_aot_metadata_tester PRIVATE metadata_tester_ucon)
+
 return()
 
 # Tests that require nonstandard targets, namespaces, args, etc.
@@ -194,47 +236,6 @@ if (TARGET_PTX)
 endif ()
 
 # Tests that require additional dependencies, args, etc
-set(MDTEST_GEN_ARGS
-    input.type=uint8 input.dim=3
-    dim_only_input_buffer.type=uint8
-    untyped_input_buffer.type=uint8 untyped_input_buffer.dim=3
-    output.type=float32,float32 output.dim=3
-    input_not_nod.type=uint8 input_not_nod.dim=3
-    input_nod.dim=3
-    input_not.type=uint8
-    array_input.size=2
-    array_i8.size=2
-    array_i16.size=2
-    array_i32.size=2
-    array_h.size=2
-    buffer_array_input2.dim=3
-    buffer_array_input3.type=float32
-    buffer_array_input4.dim=3
-    buffer_array_input4.type=float32
-    buffer_array_input5.size=2
-    buffer_array_input6.size=2
-    buffer_array_input6.dim=3
-    buffer_array_input7.size=2
-    buffer_array_input7.type=float32
-    buffer_array_input8.size=2
-    buffer_array_input8.dim=3
-    buffer_array_input8.type=float32
-    buffer_f16_untyped.type=float16
-    array_outputs.size=2
-    array_outputs7.size=2
-    array_outputs8.size=2
-    array_outputs9.size=2
-    )
-
-halide_define_aot_test(metadata_tester GENERATOR_ARGS "${MDTEST_GEN_ARGS}")
-
-halide_library_from_generator(metadata_tester_ucon
-                              GENERATOR metadata_tester.generator
-                              HALIDE_TARGET_FEATURES user_context
-                              GENERATOR_ARGS "${MDTEST_GEN_ARGS}"
-                              EXTRA_OUTPUTS stmt assembly)
-
-target_link_libraries(generator_aot_metadata_tester PUBLIC metadata_tester_ucon)
 
 # needs gradient-descent variant as well
 halide_define_aot_test(autograd)
