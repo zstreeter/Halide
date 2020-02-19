@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 3.14)
+
 define_property(TARGET PROPERTY HL_GEN_TARGET
                 BRIEF_DOCS "On a Halide library target, names the generator target used to create it"
                 FULL_DOCS "On a Halide library target, names the generator target used to create it")
@@ -21,38 +23,6 @@ define_property(TARGET PROPERTY HL_PARAMS
 define_property(TARGET PROPERTY HL_TARGET
                 BRIEF_DOCS "On a Halide library target, lists the runtime targets supported by the filter"
                 FULL_DOCS "On a Halide library target, lists the runtime targets supported by the filter")
-
-function(add_generator_stubs TARGET)
-    set(options)
-    set(oneValueArgs FOR GENERATOR FUNCTION_NAME)
-    set(multiValueArgs PARAMS EXTRA_OUTPUTS TARGETS FEATURES)
-    cmake_parse_arguments(ARG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
-
-    if (NOT ARG_FOR)
-        message(FATAL_ERROR "Missing FOR argument specifying a Halide generator target")
-    endif ()
-
-    if (NOT ARG_GENERATOR)
-        get_target_property(ARG_GENERATOR ${ARG_FOR} NAME)
-        string(REPLACE ".generator" "" ARG_GENERATOR "${ARG_GENERATOR}")
-    endif ()
-
-    set(TARGET_NAME "${TARGET}")
-
-    add_custom_command(OUTPUT "${TARGET_NAME}.stub.h"
-                       COMMAND "${ARG_FOR}" -g "${ARG_GENERATOR}" -o . -e cpp_stub -n "${ARG_GENERATOR}"
-                       DEPENDS "${ARG_FOR}")
-
-    add_custom_target("${TARGET_NAME}.stub.update"
-                      DEPENDS
-                      "${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}.stub.h"
-                      )
-
-    add_library("${TARGET}" INTERFACE)
-    target_sources("${TARGET}" INTERFACE "${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}.stub.h")
-    target_include_directories("${TARGET}" INTERFACE "${CMAKE_CURRENT_BINARY_DIR}")
-    add_dependencies("${TARGET}" "${TARGET_NAME}.stub.update")
-endfunction()
 
 function(add_halide_library TARGET)
     set(options)
@@ -99,7 +69,7 @@ function(add_halide_library TARGET)
         add_dependencies("${TARGET}.runtime" "${TARGET}.runtime.update")
     endif ()
 
-    # TODO: handle extra outputs and features.
+    # TODO: handle extra outputs
 
     ##
     # Main library target for filter.
@@ -123,12 +93,12 @@ function(add_halide_library TARGET)
 
     add_custom_target("${TARGET}.update"
                       DEPENDS
-                      "${CMAKE_CURRENT_BINARY_DIR}/${ARG_FUNCTION_NAME}.a"
-                      "${CMAKE_CURRENT_BINARY_DIR}/${ARG_FUNCTION_NAME}.h"
-                      "${CMAKE_CURRENT_BINARY_DIR}/${ARG_FUNCTION_NAME}.registration.cpp")
+                      "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.a"
+                      "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.h"
+                      "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.registration.cpp")
 
     set_target_properties("${TARGET}" PROPERTIES IMPORTED_LOCATION "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.a")
-    add_dependencies("${TARGET}" "${ARG_FUNCTION_NAME}.update")
+    add_dependencies("${TARGET}" "${TARGET}.update")
 
     target_include_directories("${TARGET}" INTERFACE "${CMAKE_CURRENT_BINARY_DIR}")
     target_link_libraries("${TARGET}" INTERFACE "${ARG_USE_RUNTIME}")

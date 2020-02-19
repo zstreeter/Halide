@@ -56,13 +56,14 @@ set(GENERATOR_SRCS
     pyramid_generator.cpp
     rdom_input_generator.cpp
     string_param_generator.cpp
-    #    stubtest_generator.cpp  # deprecated for CMake
-    #    stubuser_generator.cpp  # deprecated for CMake
     tiled_blur_generator.cpp
     user_context_generator.cpp
     user_context_insanity_generator.cpp
     variable_num_threads_generator.cpp
     )
+
+# Common extra functionality needed by certain tests.
+add_library(cxx_mangling_externs STATIC cxx_mangling_externs.cpp)
 
 # Special cases for various tests.
 set(PARAMS_stubtest
@@ -75,6 +76,7 @@ set(PARAMS_stubtest
     )
 
 set(FEATURES_matlab matlab)
+
 set(FEATURES_memory_profiler_mandelbrot profile)
 
 set(HL_TARGET_multitarget host host-debug)
@@ -84,6 +86,10 @@ set(FN_NAME_multitarget HalideTest::multitarget)
 set(FEATURES_user_context user_context)
 set(FEATURES_user_context_insanity user_context)
 
+set(FN_NAME_cxx_mangling HalideTest::AnotherNamespace::cxx_mangling)
+set(FEATURES_cxx_mangling c_plus_plus_name_mangling)
+
+# Create the generator / filter-library targets.
 foreach (FILE ${GENERATOR_SRCS})
     string(REPLACE "_generator.cpp" "" GEN_NAME "${FILE}")
 
@@ -108,11 +114,9 @@ add_halide_library(nested_externs_inner FROM nested_externs.generator)
 add_halide_library(nested_externs_combine FROM nested_externs.generator)
 add_halide_library(nested_externs_leaf FROM nested_externs.generator)
 
-#add_generator_stubs(stubtest_stubs FOR stubtest.generator)
-#add_generator_stubs(configure_stubs FOR configure.generator)
-#
-#target_link_libraries(stubuser.generator PRIVATE stubtest_stubs configure_stubs)
 target_link_libraries(external_code.generator PRIVATE external_code_generator_deps)
+
+target_link_libraries(cxx_mangling INTERFACE cxx_mangling_externs)
 
 ##
 # Define a nontrivial dependency for external_code.generator
@@ -144,28 +148,6 @@ add_custom_command(OUTPUT "${ECCPP}.cpp"
 add_library(external_code_generator_deps OBJECT "${EC32}.cpp" "${EC64}.cpp" "${ECCPP}.cpp")
 
 ##
-# Generator tests for just-in-time mode
-# TODO: these depend on stubs.
-##
-
-# Find all the files of form "foo_jittest.cpp" in test/generator
-# and declare a rule for them, each of which depends on foo.generator.
-set(JITTEST_SRCS
-    #    configure_jittest.cpp
-    #    example_jittest.cpp
-    #    stubtest_jittest.cpp
-    )
-foreach (FILE IN LISTS JITTEST_SRCS)
-    string(REPLACE "_jittest.cpp" "" NAME "${FILE}")
-
-    set(TARGET "generator_jit_${NAME}")
-
-    add_executable("${TARGET}" "${FILE}")
-    target_link_libraries("${TARGET}" PRIVATE Halide::Halide "${NAME}")
-    add_halide_test("${TARGET}" GROUPS generator travis)
-endforeach ()
-
-##
 # Ahead of Time tests
 ##
 
@@ -175,6 +157,7 @@ halide_define_aot_test(acquire_release)
 halide_define_aot_test(argvcall)
 halide_define_aot_test(can_use_target)
 halide_define_aot_test(configure)
+halide_define_aot_test(cxx_mangling)
 halide_define_aot_test(define_extern_opencl)
 halide_define_aot_test(embed_image)
 halide_define_aot_test(error_codes)
@@ -186,9 +169,9 @@ halide_define_aot_test(image_from_array)
 halide_define_aot_test(mandelbrot)
 halide_define_aot_test(memory_profiler_mandelbrot)
 halide_define_aot_test(output_assign)
-halide_define_aot_test(variable_num_threads)
 halide_define_aot_test(user_context)
 halide_define_aot_test(user_context_insanity)
+halide_define_aot_test(variable_num_threads)
 
 #halide_define_aot_test(multitarget)  # see issue #4619
 
@@ -198,13 +181,6 @@ set_target_properties(generator_aot_matlab PROPERTIES ENABLE_EXPORTS True)
 return()
 
 # Tests that require nonstandard targets, namespaces, args, etc.
-
-add_library(cxx_mangling_externs STATIC cxx_mangling_externs.cpp)
-
-halide_define_aot_test(cxx_mangling
-                       HALIDE_TARGET_FEATURES c_plus_plus_name_mangling
-                       FUNCTION_NAME HalideTest::AnotherNamespace::cxx_mangling
-                       FILTER_DEPS cxx_mangling_externs)
 
 if (TARGET_PTX)
     halide_library_from_generator(cxx_mangling_gpu
