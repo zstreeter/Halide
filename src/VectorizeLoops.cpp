@@ -1095,6 +1095,7 @@ class VectorSubs : public IRMutator {
                 std::swap(a, b);
             }
 
+            // We require b to be a var, because it should have been lifted.
             const Variable *var_b = b.as<Variable>();
             const Load *load_a = a.as<Load>();
 
@@ -1107,7 +1108,7 @@ class VectorSubs : public IRMutator {
                 break;
             }
 
-            b = mutate(b);
+            b = scope.get(var_b->name);
             Expr store_index = mutate(store->index);
             Expr load_index = mutate(load_a->index);
 
