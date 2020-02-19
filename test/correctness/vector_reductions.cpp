@@ -10,15 +10,13 @@ int main(int argc, char **argv) {
                  UInt(64), Int(64), Float(16), Float(32), Float(64)};
             const int src_lanes = dst_lanes * reduce_factor;
             for (Type src_type : types) {
-                //if (src_type == Float(16)) continue;
-
                 for (int widen_factor : {1, 2, 4}) {
                     Type dst_type = src_type.with_bits(src_type.bits() * widen_factor);
                     if (std::find(types.begin(), types.end(), dst_type) == types.end()) {
                         continue;
                     }
 
-                    for (int op = 0; op < 6; op++) {
+                    for (int op = 0; op < 7; op++) {
                         if (dst_type == Float(16) && reduce_factor > 2) {
                             // Reductions of float16s is really not very associative
                             continue;
@@ -36,6 +34,7 @@ int main(int argc, char **argv) {
                         in.compute_root();
 
                         Expr rhs = cast(dst_type, in(x * reduce_factor + r));
+                        Expr rhs2 = cast(dst_type, in(x * reduce_factor + r + 32));
 
                         if (op == 4 || op == 5) {
                             rhs = rhs > cast(rhs.type(), 5);
@@ -75,6 +74,10 @@ int main(int argc, char **argv) {
                             f(x) = f(x) && rhs;
                             ref(x) = f(x) && rhs;
                             break;
+                        case 6:
+                            // Dot product
+                            f(x) += rhs * rhs2;
+                            ref(x) += rhs * rhs2;
                         }
 
                         f.compute_root()
@@ -105,31 +108,6 @@ int main(int argc, char **argv) {
         }
     }
 
-    return 0;
-
-    // TO test: min/max/add/dot/mul for lots of src/dst type pairs
-
-    // Fused combinations of x and a reduction at various combos
-
-    Func f, g, c;
-    Var x, y;
-
-    c(x) = cast<int16_t>(x);
-    f(y, x) = cast<int16_t>(x);
-    f.compute_root();
-    c.compute_root();
-
-    RDom r(0, 16);
-
-    g(x) += cast<int32_t>(f(r, x)) * c(r);
-
-    Var xo, xi;
-    RVar rx;
-    g.bound(x, 0, 128).update().atomic().split(x, xo, xi, 1).fuse(r, xi, rx).vectorize(rx);
-
-    //g.compile_to_assembly("/dev/stdout", {}, Target("arm-64-no_asserts-no_bounds_query-no_runtime-disable_llvm_loop_opt"));
-    //g.compile_to_assembly("/dev/stdout", {}, Target("arm-32-no_asserts-no_bounds_query-no_runtime-disable_llvm_loop_opt"));
-    g.compile_to_assembly("/dev/stdout", {}, Target("host-no_asserts-no_bounds_query-no_runtime-disable_llvm_loop_opt"));
-
+    printf("Success!\n");
     return 0;
 }
