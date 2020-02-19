@@ -21,7 +21,14 @@ function(halide_define_aot_test NAME)
 endfunction(halide_define_aot_test)
 
 ##
-# Write down build rules for all the generators
+# Common extra functionality needed by certain tests.
+##
+
+add_library(cxx_mangling_externs STATIC cxx_mangling_externs.cpp)
+add_library(cxx_mangling_define_extern_externs STATIC cxx_mangling_define_extern_externs.cpp)
+
+##
+# Create targets for all the generators as well as library targets for their default configurations
 ##
 
 set(GENERATOR_SRCS
@@ -54,7 +61,7 @@ set(GENERATOR_SRCS
     memory_profiler_mandelbrot_generator.cpp
     metadata_tester_generator.cpp
     msan_generator.cpp
-    #    multitarget_generator.cpp  # see issue #4619
+    #multitarget_generator.cpp  # see issue #4619
     nested_externs_generator.cpp
     output_assign_generator.cpp
     pyramid_generator.cpp
@@ -65,10 +72,6 @@ set(GENERATOR_SRCS
     user_context_insanity_generator.cpp
     variable_num_threads_generator.cpp
     )
-
-# Common extra functionality needed by certain tests.
-add_library(cxx_mangling_externs STATIC cxx_mangling_externs.cpp)
-add_library(cxx_mangling_define_extern_externs STATIC cxx_mangling_define_extern_externs.cpp)
 
 # Special configuration for various tests.
 set(FN_NAME_cxx_mangling HalideTest::AnotherNamespace::cxx_mangling)
@@ -129,54 +132,22 @@ set(FEATURES_user_context user_context)
 set(FEATURES_user_context_insanity user_context)
 
 # Create the generator / filter-library targets.
-foreach (FILE ${GENERATOR_SRCS})
+foreach (FILE IN LISTS GENERATOR_SRCS)
     string(REPLACE "_generator.cpp" "" GEN_NAME "${FILE}")
 
     add_executable("${GEN_NAME}.generator" "${FILE}")
     target_link_libraries("${GEN_NAME}.generator" PRIVATE Halide::Generator)
 
-    set(PARAMS ${PARAMS_${GEN_NAME}})
-    set(FEATURES ${FEATURES_${GEN_NAME}})
-    set(HL_TARGET ${HL_TARGET_${GEN_NAME}})
-    set(FN_NAME ${FN_NAME_${GEN_NAME}})
-
     add_halide_library(${GEN_NAME}
                        FROM "${GEN_NAME}.generator"
-                       PARAMS ${PARAMS}
-                       TARGETS ${HL_TARGET}
-                       FUNCTION_NAME ${FN_NAME}
-                       FEATURES ${FEATURES}
+                       PARAMS "${PARAMS_${GEN_NAME}}"
+                       TARGETS "${HL_TARGET_${GEN_NAME}}"
+                       FUNCTION_NAME "${FN_NAME_${GEN_NAME}}"
+                       FEATURES "${FEATURES_${GEN_NAME}}"
                        ${GRADS_${GEN_NAME}})
 endforeach ()
 
-target_link_libraries(cxx_mangling INTERFACE cxx_mangling_externs)
-
-target_link_libraries(cxx_mangling_define_extern INTERFACE cxx_mangling_externs cxx_mangling_define_extern_externs)
-
 target_link_libraries(external_code.generator PRIVATE external_code_generator_deps)
-
-add_halide_library(nested_externs_root FROM nested_externs.generator)
-add_halide_library(nested_externs_inner FROM nested_externs.generator)
-add_halide_library(nested_externs_combine FROM nested_externs.generator)
-add_halide_library(nested_externs_leaf FROM nested_externs.generator)
-
-add_halide_library(metadata_tester_ucon
-                   FROM metadata_tester.generator
-                   GENERATOR metadata_tester
-                   FUNCTION_NAME metadata_tester_ucon
-                   FEATURES user_context
-                   PARAMS ${PARAMS_metadata_tester})
-
-add_halide_library(autograd_grad
-                   GRADIENT_DESCENT
-                   FROM autograd.generator
-                   GENERATOR autograd
-                   FUNCTION_NAME autograd_grad
-                   PARAMS "auto_schedule=true")
-
-add_halide_library(alias_with_offset_42
-                   FROM alias.generator
-                   GENERATOR alias_with_offset_42)
 
 ##
 # Define a nontrivial dependency for external_code.generator
@@ -208,15 +179,14 @@ add_custom_command(OUTPUT "${ECCPP}.cpp"
 add_library(external_code_generator_deps OBJECT "${EC32}.cpp" "${EC64}.cpp" "${ECCPP}.cpp")
 
 ##
-# Ahead of Time tests
+# Create targets for the default AOT tests
 ##
 
 halide_define_aot_test(acquire_release)
 halide_define_aot_test(argvcall)
 halide_define_aot_test(can_use_target)
-#halide_define_aot_test(cleanup_on_error) # requires access to internal header runtime/device_interface.h
+#halide_define_aot_test(cleanup_on_error)  # requires access to internal header runtime/device_interface.h
 halide_define_aot_test(configure)
-halide_define_aot_test(cxx_mangling)
 halide_define_aot_test(define_extern_opencl)
 halide_define_aot_test(embed_image)
 halide_define_aot_test(error_codes)
@@ -229,6 +199,7 @@ halide_define_aot_test(image_from_array)
 halide_define_aot_test(mandelbrot)
 halide_define_aot_test(memory_profiler_mandelbrot)
 halide_define_aot_test(msan)
+#halide_define_aot_test(multitarget)  # see issue #4619
 halide_define_aot_test(output_assign)
 halide_define_aot_test(pyramid)
 halide_define_aot_test(string_param)
@@ -236,34 +207,30 @@ halide_define_aot_test(user_context)
 halide_define_aot_test(user_context_insanity)
 halide_define_aot_test(variable_num_threads)
 
+##
+# Create targets for the AOT tests with custom rules
+##
+
+# Alias generator test
 halide_define_aot_test(alias)
+add_halide_library(alias_with_offset_42
+                   FROM alias.generator
+                   GENERATOR alias_with_offset_42)
 target_link_libraries(generator_aot_alias PRIVATE alias_with_offset_42)
 
+# Autograd generator test
 halide_define_aot_test(autograd)
+add_halide_library(autograd_grad
+                   GRADIENT_DESCENT
+                   FROM autograd.generator
+                   GENERATOR autograd
+                   FUNCTION_NAME autograd_grad
+                   PARAMS "auto_schedule=true")
 target_link_libraries(generator_aot_autograd PRIVATE autograd_grad)
 
-halide_define_aot_test(matlab)
-set_target_properties(generator_aot_matlab PROPERTIES ENABLE_EXPORTS True)
-
-halide_define_aot_test(metadata_tester)
-target_link_libraries(generator_aot_metadata_tester PRIVATE metadata_tester_ucon)
-
-halide_define_aot_test(tiled_blur)
-target_link_libraries(generator_aot_tiled_blur PRIVATE blur2x2)
-
-#halide_define_aot_test(multitarget)  # see issue #4619
-
-halide_define_aot_test(cxx_mangling_define_extern)
-target_link_libraries(cxx_mangling_define_extern_externs PRIVATE cxx_mangling_externs cxx_mangling)
-
-halide_define_aot_test(nested_externs OMIT_DEFAULT_GENERATOR)
-target_link_libraries(generator_aot_nested_externs
-                      PRIVATE
-                      nested_externs_root
-                      nested_externs_inner
-                      nested_externs_combine
-                      nested_externs_leaf)
-
+# CXX mangling generator test.
+halide_define_aot_test(cxx_mangling)
+target_link_libraries(cxx_mangling INTERFACE cxx_mangling_externs)
 if (TARGET_PTX)
     add_halide_library(cxx_mangling_gpu
                        FROM cxx_mangling.generator
@@ -272,3 +239,39 @@ if (TARGET_PTX)
                        FEATURES c_plus_plus_name_mangling cuda)
     target_link_libraries(generator_aot_cxx_mangling PRIVATE cxx_mangling_gpu)
 endif ()
+
+# CXX mangling with extern generator test
+halide_define_aot_test(cxx_mangling_define_extern)
+target_link_libraries(cxx_mangling_define_extern INTERFACE cxx_mangling_externs cxx_mangling_define_extern_externs)
+target_link_libraries(cxx_mangling_define_extern_externs PRIVATE cxx_mangling_externs cxx_mangling)
+
+# Matlab generator test
+halide_define_aot_test(matlab)
+set_target_properties(generator_aot_matlab PROPERTIES ENABLE_EXPORTS True)
+
+# Metadata tester
+halide_define_aot_test(metadata_tester)
+add_halide_library(metadata_tester_ucon
+                   FROM metadata_tester.generator
+                   GENERATOR metadata_tester
+                   FUNCTION_NAME metadata_tester_ucon
+                   FEATURES user_context
+                   PARAMS ${PARAMS_metadata_tester})
+target_link_libraries(generator_aot_metadata_tester PRIVATE metadata_tester_ucon)
+
+# Nested externs test
+halide_define_aot_test(nested_externs OMIT_DEFAULT_GENERATOR)
+add_halide_library(nested_externs_root FROM nested_externs.generator)
+add_halide_library(nested_externs_inner FROM nested_externs.generator)
+add_halide_library(nested_externs_combine FROM nested_externs.generator)
+add_halide_library(nested_externs_leaf FROM nested_externs.generator)
+target_link_libraries(generator_aot_nested_externs
+                      PRIVATE
+                      nested_externs_root
+                      nested_externs_inner
+                      nested_externs_combine
+                      nested_externs_leaf)
+
+# Tiled blur
+halide_define_aot_test(tiled_blur)
+target_link_libraries(generator_aot_tiled_blur PRIVATE blur2x2)
