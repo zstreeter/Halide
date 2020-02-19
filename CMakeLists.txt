@@ -61,7 +61,7 @@ if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
         message(STATUS "Building apps disabled")
     endif ()
 
-    option(WITH_TUTORIALS "Build tutorials" OFF)
+    option(WITH_TUTORIALS "Build tutorials" ON)
     if (WITH_TUTORIALS)
         message(STATUS "Building tutorials enabled")
         add_subdirectory(tutorial)

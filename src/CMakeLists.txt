@@ -447,7 +447,7 @@ endif ()
 if (NOT HALIDE_ENABLE_RTTI)
     target_compile_options(Halide PUBLIC
                            $<$<COMPILE_LANG_AND_ID:CXX,MSVC>:/GR- >
-                           $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:-fno-rtti>)
+                           $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang,AppleClang>:-fno-rtti>)
 endif ()
 
 target_compile_options(Halide

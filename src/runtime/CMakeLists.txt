@@ -223,7 +223,7 @@ foreach (i IN LISTS RUNTIME_CPP)
 endforeach ()
 
 
-foreach (i ${RUNTIME_LL})
+foreach (i IN LISTS RUNTIME_LL)
     set(LL "${CMAKE_CURRENT_SOURCE_DIR}/${i}.ll")
     file(TO_NATIVE_PATH "${LL}" LL)
 
@@ -244,7 +244,7 @@ foreach (i ${RUNTIME_LL})
     target_sources(Halide_initmod PRIVATE ${INITMOD})
 endforeach ()
 
-foreach (i ${RUNTIME_BC})
+foreach (i IN LISTS RUNTIME_BC)
     set(INITMOD "_initmod_ptx_${i}.cpp")
     set(RT_BC "${CMAKE_CURRENT_SOURCE_DIR}/nvidia_libdevice_bitcode/libdevice.${i}.10.bc")
     file(TO_NATIVE_PATH "${RT_BC}" RT_BC)
@@ -264,7 +264,7 @@ add_custom_command(OUTPUT "_initmod_inlined_c.cpp"
                    )
 target_sources(Halide_initmod PRIVATE "_initmod_inlined_c.cpp")
 
-foreach (i ${RUNTIME_HEADER_FILES})
+foreach (i IN LISTS RUNTIME_HEADER_FILES)
     string(REPLACE "." "_" SYM_NAME "${i}")
     add_custom_command(OUTPUT "_initmod_${SYM_NAME}.cpp"
                        # COMMENT "${i} -> _initmod_${SYM_NAME}.cpp"
@@ -272,9 +272,17 @@ foreach (i ${RUNTIME_HEADER_FILES})
                        COMMAND binary2cpp "halide_internal_runtime_header_${SYM_NAME}" < "${CMAKE_CURRENT_SOURCE_DIR}/${i}" > "_initmod_${SYM_NAME}.cpp"
                        )
     target_sources(Halide_initmod PRIVATE "_initmod_${SYM_NAME}.cpp")
-endforeach ()
 
-# TODO: replace with install.
-foreach (i ${RUNTIME_HEADER_FILES})
     configure_file(${i} "${Halide_BINARY_DIR}/include/${i}" COPYONLY)
 endforeach ()
+
+##
+# Target for the runtime
+##
+
+add_library(Halide_Runtime INTERFACE)
+add_library(Halide::Runtime ALIAS Halide_Runtime)
+target_include_directories(Halide_Runtime INTERFACE
+                           $<BUILD_INTERFACE:${Halide_BINARY_DIR}/include>
+                           $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+set_target_properties(Halide_Runtime PROPERTIES EXPORT_NAME Runtime)

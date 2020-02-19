@@ -67,11 +67,11 @@ function(add_halide_library TARGET)
     if (NOT ARG_USE_RUNTIME)
         add_library("${TARGET}.runtime" STATIC IMPORTED)
         target_link_libraries("${TARGET}.runtime" INTERFACE ${CMAKE_DL_LIBS})
-        add_custom_command(OUTPUT "${TARGET}.runtime.a"
+        add_custom_command(OUTPUT "${TARGET}.runtime${CMAKE_STATIC_LIBRARY_SUFFIX}"
                            COMMAND "${ARG_FROM}" -r "${TARGET}.runtime" -o . target=${TARGETS})
         add_custom_target("${TARGET}.runtime.update"
-                          DEPENDS "${TARGET}.runtime.a")
-        set_target_properties("${TARGET}.runtime" PROPERTIES IMPORTED_LOCATION "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.runtime.a")
+                          DEPENDS "${TARGET}.runtime${CMAKE_STATIC_LIBRARY_SUFFIX}")
+        set_target_properties("${TARGET}.runtime" PROPERTIES IMPORTED_LOCATION "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.runtime${CMAKE_STATIC_LIBRARY_SUFFIX}")
         add_dependencies("${TARGET}.runtime" "${TARGET}.runtime.update")
         set(ARG_USE_RUNTIME "${TARGET}.runtime")
     endif ()
@@ -92,7 +92,7 @@ function(add_halide_library TARGET)
                           HL_TARGET "${TARGETS}")
 
     add_custom_command(OUTPUT
-                       "${TARGET}.a"
+                       "${TARGET}${CMAKE_STATIC_LIBRARY_SUFFIX}"
                        "${TARGET}.h"
                        "${TARGET}.registration.cpp"
                        COMMAND "${ARG_FROM}" -n "${TARGET}" -d "${GRADIENT_DESCENT}" -g "${ARG_GENERATOR}" -f "${ARG_FUNCTION_NAME}" -o . target=${TARGETS} ${ARG_PARAMS}
@@ -100,11 +100,11 @@ function(add_halide_library TARGET)
 
     add_custom_target("${TARGET}.update"
                       DEPENDS
-                      "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.a"
+                      "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}${CMAKE_STATIC_LIBRARY_SUFFIX}"
                       "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.h"
                       "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.registration.cpp")
 
-    set_target_properties("${TARGET}" PROPERTIES IMPORTED_LOCATION "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.a")
+    set_target_properties("${TARGET}" PROPERTIES IMPORTED_LOCATION "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}${CMAKE_STATIC_LIBRARY_SUFFIX}")
     add_dependencies("${TARGET}" "${TARGET}.update")
 
     target_include_directories("${TARGET}" INTERFACE "${CMAKE_CURRENT_BINARY_DIR}")

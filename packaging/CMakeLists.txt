@@ -5,8 +5,7 @@ include(GNUInstallDirs)
 ##
 
 install(TARGETS Halide
-        EXPORT Halide_Targets
-
+        EXPORT Halide
         RUNTIME
         DESTINATION ${CMAKE_INSTALL_BINDIR}
         COMPONENT Halide_Runtime
@@ -23,13 +22,11 @@ install(TARGETS Halide
         INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 install(TARGETS Halide_Generator Halide_ImageIO Halide_RunGenMain Halide_Runtime Halide_Tools
-        EXPORT Halide_Targets)
+        EXPORT Halide)
 
-install(EXPORT Halide_Targets
+install(EXPORT Halide
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Halide
-        NAMESPACE Halide::
-        FILE Halide-Targets.cmake
-        COMPONENT Halide_Development)
+        NAMESPACE Halide::)
 
 # Captures both the runtime and Halide.h
 install(DIRECTORY ${Halide_BINARY_DIR}/include/ TYPE INCLUDE FILES_MATCHING PATTERN "include/*.h")
