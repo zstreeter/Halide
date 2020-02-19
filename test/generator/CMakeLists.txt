@@ -50,20 +50,21 @@ set(GENERATOR_SRCS
     memory_profiler_mandelbrot_generator.cpp
     metadata_tester_generator.cpp
     msan_generator.cpp
-    multitarget_generator.cpp
+    #    multitarget_generator.cpp  # see issue #4619
     nested_externs_generator.cpp
     output_assign_generator.cpp
     pyramid_generator.cpp
     rdom_input_generator.cpp
     string_param_generator.cpp
-    #    stubtest_generator.cpp
-    #    stubuser_generator.cpp
+    #    stubtest_generator.cpp  # deprecated for CMake
+    #    stubuser_generator.cpp  # deprecated for CMake
     tiled_blur_generator.cpp
     user_context_generator.cpp
     user_context_insanity_generator.cpp
     variable_num_threads_generator.cpp
     )
 
+# Special cases for various tests.
 set(PARAMS_stubtest
     untyped_buffer_input.type=uint8 untyped_buffer_input.dim=3
     simple_input.type=float32
@@ -73,17 +74,33 @@ set(PARAMS_stubtest
     vectorize=true
     )
 
+set(FEATURES_matlab matlab)
+set(FEATURES_memory_profiler_mandelbrot profile)
+
+set(HL_TARGET_multitarget host host-debug)
+set(FEATURES_multitarget c_plus_plus_name_mangling)
+set(FN_NAME_multitarget HalideTest::multitarget)
+
+set(FEATURES_user_context user_context)
+set(FEATURES_user_context_insanity user_context)
+
 foreach (FILE ${GENERATOR_SRCS})
     string(REPLACE "_generator.cpp" "" GEN_NAME "${FILE}")
 
     add_executable("${GEN_NAME}.generator" "${FILE}")
     target_link_libraries("${GEN_NAME}.generator" PRIVATE Halide::Generator)
 
-    set(PARAMS)
-    if (PARAMS_${GEN_NAME})
-        set(PARAMS ${PARAMS_${GEN_NAME}})
-    endif ()
-    add_halide_library(${GEN_NAME} FROM "${GEN_NAME}.generator" PARAMS ${PARAMS})
+    set(PARAMS ${PARAMS_${GEN_NAME}})
+    set(FEATURES ${FEATURES_${GEN_NAME}})
+    set(HL_TARGET ${HL_TARGET_${GEN_NAME}})
+    set(FN_NAME ${FN_NAME_${GEN_NAME}})
+
+    add_halide_library(${GEN_NAME}
+                       FROM "${GEN_NAME}.generator"
+                       PARAMS ${PARAMS}
+                       TARGETS ${HL_TARGET}
+                       FUNCTION_NAME ${FN_NAME}
+                       FEATURES ${FEATURES})
 endforeach ()
 
 add_halide_library(nested_externs_root FROM nested_externs.generator)
@@ -152,46 +169,35 @@ endforeach ()
 # Ahead of Time tests
 ##
 
-# Create tests for ahead of-time-compiled generators. This will produce two
-# executables, one containing the generator itself
-# (e.g. from example_generator.cpp) and used at build time, and the other, the
-# test that executes the generated code (e.g. from example_aottest.cpp).
-
-# Tests with no special requirements
+#halide_define_aot_test(cleanup_on_error) # requires access to internal header runtime/device_interface.h
+#halide_define_aot_test(stubuser)  # uses stubs, which are currently not implemented
 halide_define_aot_test(acquire_release)
 halide_define_aot_test(argvcall)
 halide_define_aot_test(can_use_target)
-#halide_define_aot_test(cleanup_on_error) # requires access to internal header runtime/device_interface.h
 halide_define_aot_test(configure)
 halide_define_aot_test(define_extern_opencl)
 halide_define_aot_test(embed_image)
 halide_define_aot_test(error_codes)
 halide_define_aot_test(example)
+halide_define_aot_test(external_code)
 halide_define_aot_test(float16_t)
 halide_define_aot_test(gpu_only)
 halide_define_aot_test(image_from_array)
 halide_define_aot_test(mandelbrot)
-#halide_define_aot_test(stubuser)  # uses stubs, which are currently not implemented
-halide_define_aot_test(variable_num_threads)
+halide_define_aot_test(memory_profiler_mandelbrot)
 halide_define_aot_test(output_assign)
-halide_define_aot_test(external_code)
+halide_define_aot_test(variable_num_threads)
+halide_define_aot_test(user_context)
+halide_define_aot_test(user_context_insanity)
+
+#halide_define_aot_test(multitarget)  # see issue #4619
+
+halide_define_aot_test(matlab)
+set_target_properties(generator_aot_matlab PROPERTIES ENABLE_EXPORTS True)
 
 return()
 
 # Tests that require nonstandard targets, namespaces, args, etc.
-halide_define_aot_test(matlab HALIDE_TARGET_FEATURES matlab)
-set_target_properties(generator_aot_matlab PROPERTIES ENABLE_EXPORTS True)
-
-halide_define_aot_test(memory_profiler_mandelbrot HALIDE_TARGET_FEATURES profile)
-
-halide_define_aot_test(multitarget
-                       HALIDE_TARGET host host-debug
-                       HALIDE_TARGET_FEATURES c_plus_plus_name_mangling
-                       FUNCTION_NAME HalideTest::multitarget)
-
-halide_define_aot_test(user_context HALIDE_TARGET_FEATURES user_context)
-
-halide_define_aot_test(user_context_insanity HALIDE_TARGET_FEATURES user_context)
 
 add_library(cxx_mangling_externs STATIC cxx_mangling_externs.cpp)
 
