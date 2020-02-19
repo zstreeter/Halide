@@ -60,6 +60,7 @@ tests(GROUPS correctness travis
         convolution.cpp
         convolution_multiple_kernels.cpp
         cross_compilation.cpp
+        cuda_8_bit_dot_product.cpp
         custom_allocator.cpp
         custom_auto_scheduler.cpp
         custom_error_reporter.cpp
@@ -317,6 +318,7 @@ tests(GROUPS correctness travis
         vectorize_varying_allocation_size.cpp
         vector_math.cpp
         vector_print_bug.cpp
+        vector_reductions.cpp
         widening_reduction.cpp
         )
 
