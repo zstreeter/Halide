@@ -1117,7 +1117,7 @@ class VectorSubs : public IRMutator {
             InterleavedRamp store_ir, load_ir;
             Expr test;
             if (store_index.type().is_scalar()) {
-                test = load_index == store_index;
+                test = simplify(load_index == store_index);
             } else if (is_interleaved_ramp(store_index, vector_scope, &store_ir) &&
                        is_interleaved_ramp(load_index, vector_scope, &load_ir) &&
                        store_ir.repetitions == load_ir.repetitions &&
