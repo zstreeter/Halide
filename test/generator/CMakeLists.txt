@@ -211,10 +211,10 @@ add_library(external_code_generator_deps OBJECT "${EC32}.cpp" "${EC64}.cpp" "${E
 # Ahead of Time tests
 ##
 
-#halide_define_aot_test(cleanup_on_error) # requires access to internal header runtime/device_interface.h
 halide_define_aot_test(acquire_release)
 halide_define_aot_test(argvcall)
 halide_define_aot_test(can_use_target)
+#halide_define_aot_test(cleanup_on_error) # requires access to internal header runtime/device_interface.h
 halide_define_aot_test(configure)
 halide_define_aot_test(cxx_mangling)
 halide_define_aot_test(define_extern_opencl)
@@ -264,12 +264,11 @@ target_link_libraries(generator_aot_nested_externs
                       nested_externs_combine
                       nested_externs_leaf)
 
-return()
-
 if (TARGET_PTX)
-    halide_library_from_generator(cxx_mangling_gpu
-                                  GENERATOR cxx_mangling.generator
-                                  FUNCTION_NAME HalideTest::cxx_mangling_gpu
-                                  HALIDE_TARGET_FEATURES c_plus_plus_name_mangling cuda)
+    add_halide_library(cxx_mangling_gpu
+                       FROM cxx_mangling.generator
+                       GENERATOR cxx_mangling
+                       FUNCTION_NAME HalideTest::cxx_mangling_gpu
+                       FEATURES c_plus_plus_name_mangling cuda)
     target_link_libraries(generator_aot_cxx_mangling PRIVATE cxx_mangling_gpu)
 endif ()
