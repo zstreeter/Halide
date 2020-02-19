@@ -25,10 +25,16 @@ define_property(TARGET PROPERTY HL_TARGET
                 FULL_DOCS "On a Halide library target, lists the runtime targets supported by the filter")
 
 function(add_halide_library TARGET)
-    set(options)
+    set(options GRADIENT_DESCENT)
     set(oneValueArgs FROM GENERATOR FUNCTION_NAME USE_RUNTIME)
     set(multiValueArgs PARAMS EXTRA_OUTPUTS TARGETS FEATURES)
     cmake_parse_arguments(ARG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+    if (ARG_GRADIENT_DESCENT)
+        set(GRADIENT_DESCENT 1)
+    else ()
+        set(GRADIENT_DESCENT 0)
+    endif ()
 
     if (NOT ARG_FROM)
         message(FATAL_ERROR "Missing FROM argument specifying a Halide generator target")
@@ -89,7 +95,7 @@ function(add_halide_library TARGET)
                        "${TARGET}.a"
                        "${TARGET}.h"
                        "${TARGET}.registration.cpp"
-                       COMMAND "${ARG_FROM}" -n "${TARGET}" -g "${ARG_GENERATOR}" -f "${ARG_FUNCTION_NAME}" -o . target=${TARGETS} ${ARG_PARAMS}
+                       COMMAND "${ARG_FROM}" -n "${TARGET}" -d "${GRADIENT_DESCENT}" -g "${ARG_GENERATOR}" -f "${ARG_FUNCTION_NAME}" -o . target=${TARGETS} ${ARG_PARAMS}
                        DEPENDS "${ARG_FROM}")
 
     add_custom_target("${TARGET}.update"

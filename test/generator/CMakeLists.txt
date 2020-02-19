@@ -138,7 +138,8 @@ foreach (FILE ${GENERATOR_SRCS})
                        PARAMS ${PARAMS}
                        TARGETS ${HL_TARGET}
                        FUNCTION_NAME ${FN_NAME}
-                       FEATURES ${FEATURES})
+                       FEATURES ${FEATURES}
+                       ${GRADS_${GEN_NAME}})
 endforeach ()
 
 target_link_libraries(cxx_mangling INTERFACE cxx_mangling_externs)
@@ -156,6 +157,13 @@ add_halide_library(metadata_tester_ucon
                    FUNCTION_NAME metadata_tester_ucon
                    FEATURES user_context
                    PARAMS ${PARAMS_metadata_tester})
+
+add_halide_library(autograd_grad
+                   GRADIENT_DESCENT
+                   FROM autograd.generator
+                   GENERATOR autograd
+                   FUNCTION_NAME autograd_grad
+                   PARAMS "auto_schedule=true")
 
 ##
 # Define a nontrivial dependency for external_code.generator
@@ -215,7 +223,8 @@ halide_define_aot_test(user_context)
 halide_define_aot_test(user_context_insanity)
 halide_define_aot_test(variable_num_threads)
 
-#halide_define_aot_test(multitarget)  # see issue #4619
+halide_define_aot_test(autograd)
+target_link_libraries(generator_aot_autograd PRIVATE autograd_grad)
 
 halide_define_aot_test(matlab)
 set_target_properties(generator_aot_matlab PROPERTIES ENABLE_EXPORTS True)
@@ -223,9 +232,9 @@ set_target_properties(generator_aot_matlab PROPERTIES ENABLE_EXPORTS True)
 halide_define_aot_test(metadata_tester)
 target_link_libraries(generator_aot_metadata_tester PRIVATE metadata_tester_ucon)
 
-return()
+#halide_define_aot_test(multitarget)  # see issue #4619
 
-# Tests that require nonstandard targets, namespaces, args, etc.
+return()
 
 if (TARGET_PTX)
     halide_library_from_generator(cxx_mangling_gpu
@@ -234,17 +243,6 @@ if (TARGET_PTX)
                                   HALIDE_TARGET_FEATURES c_plus_plus_name_mangling cuda)
     target_link_libraries(generator_aot_cxx_mangling PRIVATE cxx_mangling_gpu)
 endif ()
-
-# Tests that require additional dependencies, args, etc
-
-# needs gradient-descent variant as well
-halide_define_aot_test(autograd)
-halide_library_from_generator(autograd_grad
-                              GENERATOR autograd.generator
-                              FUNCTION_NAME autograd_grad
-                              GRADIENT_DESCENT 1
-                              GENERATOR_ARGS "auto_schedule=true")
-target_link_libraries(generator_aot_autograd PUBLIC autograd_grad)
 
 # Needs an extra library from this Generator
 halide_define_aot_test(alias)
