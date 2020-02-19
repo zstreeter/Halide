@@ -448,7 +448,6 @@ target_compile_options(Halide
                        # Disable sized deallocation if the flag is supported. MSVC fails to compile
                        # the operator new overload in LLVM/IR/Function.h and Instruction.h otherwise.
                        # See LLVM PR: 23513 (https://llvm.org/bugs/show_bug.cgi?id=23513)
-                       # TODO: decide whether we still support MSVC <2015, which is when this flag was introduced.
                        $<$<CXX_COMPILER_ID:MSVC>:/Zc:sizedDealloc- >
                        )
 
