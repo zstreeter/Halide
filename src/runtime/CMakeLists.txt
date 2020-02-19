@@ -281,7 +281,5 @@ endforeach ()
 
 add_library(Halide_Runtime INTERFACE)
 add_library(Halide::Runtime ALIAS Halide_Runtime)
-target_include_directories(Halide_Runtime INTERFACE
-                           $<BUILD_INTERFACE:${Halide_BINARY_DIR}/include>
-                           $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+target_include_directories(Halide_Runtime INTERFACE $<BUILD_INTERFACE:${Halide_BINARY_DIR}/include>)
 set_target_properties(Halide_Runtime PROPERTIES EXPORT_NAME Runtime)

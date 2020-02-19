@@ -426,11 +426,7 @@ add_dependencies(Halide HalideIncludes)
 # Include paths for libHalide
 ##
 
-include(GNUInstallDirs)
-target_include_directories(Halide
-                           INTERFACE
-                           $<BUILD_INTERFACE:${Halide_BINARY_DIR}/include>
-                           $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+target_include_directories(Halide INTERFACE $<BUILD_INTERFACE:${Halide_BINARY_DIR}/include>)
 
 ##
 # Set compiler options for libHalide

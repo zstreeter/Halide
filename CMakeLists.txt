@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.14)
-project(Halide)
+project(Halide VERSION 1.0.0)
+
 enable_testing()
 
 ##
@@ -22,8 +23,8 @@ endif ()
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
 # Require the given C++ standard
-# TODO: evaluate if we actually need to match LLVM on this.
-set(CMAKE_CXX_STANDARD 11)
+# TODO: evaluate if we actually need to match LLVM on this or if C++14 is universally safe.
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -53,7 +54,7 @@ if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
         message(STATUS "Building tests disabled")
     endif ()
 
-    option(WITH_APPS "Build apps" OFF)
+    option(WITH_APPS "Build apps" ON)
     if (WITH_APPS)
         message(STATUS "Building apps enabled")
         add_subdirectory(apps)

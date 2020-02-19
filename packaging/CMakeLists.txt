@@ -1,11 +1,21 @@
 include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
+##
+# Custom locations
+##
+
+set(HALIDE_INSTALL_CMAKEDIR
+    "${CMAKE_INSTALL_LIBDIR}/cmake/Halide"
+    CACHE STRING "Path to Halide cmake files")
 
 ##
 # Main library exports
 ##
 
-install(TARGETS Halide
-        EXPORT Halide
+install(TARGETS Halide Halide_Runtime
+        EXPORT Halide_Targets
+
         RUNTIME
         DESTINATION ${CMAKE_INSTALL_BINDIR}
         COMPONENT Halide_Runtime
@@ -21,12 +31,18 @@ install(TARGETS Halide
 
         INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
-install(TARGETS Halide_Generator Halide_ImageIO Halide_RunGenMain Halide_Runtime Halide_Tools
-        EXPORT Halide)
+install(TARGETS Halide_Tools Halide_ImageIO
+        EXPORT Halide_Targets
+        INCLUDES DESTINATION ${CMAKE_INSTALL_DATADIR}/tools)
 
-install(EXPORT Halide
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Halide
-        NAMESPACE Halide::)
+install(TARGETS Halide_Generator Halide_RunGenMain
+        EXPORT Halide_Targets)
+
+install(EXPORT Halide_Targets
+        DESTINATION ${HALIDE_INSTALL_CMAKEDIR}
+        NAMESPACE Halide::
+        FILE Halide-Targets.cmake
+        COMPONENT Halide_Development)
 
 # Captures both the runtime and Halide.h
 install(DIRECTORY ${Halide_BINARY_DIR}/include/ TYPE INCLUDE FILES_MATCHING PATTERN "include/*.h")
@@ -71,6 +87,20 @@ install(DIRECTORY ${Halide_SOURCE_DIR}/tutorial
         PATTERN "*.jpg"
         PATTERN "*.mp4"
         PATTERN "*.png")
+
+##
+# CMake scripts
+##
+
+write_basic_package_version_file(
+        HalideConfigVersion.cmake
+        COMPATIBILITY SameMajorVersion)
+
+install(FILES
+        HalideConfig.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/HalideConfigVersion.cmake
+        ${Halide_SOURCE_DIR}/cmake/HalideGeneratorHelpers.cmake
+        DESTINATION ${HALIDE_INSTALL_CMAKEDIR})
 
 ##
 # Documentation

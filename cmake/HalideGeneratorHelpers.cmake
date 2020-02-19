@@ -66,14 +66,26 @@ function(add_halide_library TARGET)
 
     if (NOT ARG_USE_RUNTIME)
         add_library("${TARGET}.runtime" STATIC IMPORTED)
-        target_link_libraries("${TARGET}.runtime" INTERFACE ${CMAKE_DL_LIBS})
+        target_link_libraries("${TARGET}.runtime"
+                              INTERFACE
+                              Threads::Threads
+                              ${CMAKE_DL_LIBS})
+        set_target_properties("${TARGET}.runtime"
+                              PROPERTIES
+                              IMPORTED_LOCATION "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.runtime${CMAKE_STATIC_LIBRARY_SUFFIX}")
+
         add_custom_command(OUTPUT "${TARGET}.runtime${CMAKE_STATIC_LIBRARY_SUFFIX}"
                            COMMAND "${ARG_FROM}" -r "${TARGET}.runtime" -o . target=${TARGETS})
+
         add_custom_target("${TARGET}.runtime.update"
                           DEPENDS "${TARGET}.runtime${CMAKE_STATIC_LIBRARY_SUFFIX}")
-        set_target_properties("${TARGET}.runtime" PROPERTIES IMPORTED_LOCATION "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}.runtime${CMAKE_STATIC_LIBRARY_SUFFIX}")
+
         add_dependencies("${TARGET}.runtime" "${TARGET}.runtime.update")
         set(ARG_USE_RUNTIME "${TARGET}.runtime")
+    endif ()
+
+    if (NOT TARGET ${ARG_USE_RUNTIME})
+        message(FATAL_ERROR "Invalid runtime target ${ARG_USE_RUNTIME}")
     endif ()
 
     # TODO: handle extra outputs
