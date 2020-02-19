@@ -285,9 +285,10 @@ public:
 
         // SSE 4.1
 
-        for (int w = 2; w <= 4; w++) {
+        for (int w = 2; w <= 8; w++) {
             // We generated pmaddwd when we do a sum of widening multiplies
-            const char *check_pmaddwd = (use_avx2 && w > 3) ? "vpmaddwd*ymm" : "pmaddwd";
+            const char *check_pmaddwd =
+                (use_avx2 && w >= 4) ? "vpmaddwd" : "pmaddwd";
             check(check_pmaddwd, 2 * w, i32(i16_1) * 3 + i32(i16_2) * 4);
             check(check_pmaddwd, 2 * w, i32(i16_1) * 3 - i32(i16_2) * 4);
 
