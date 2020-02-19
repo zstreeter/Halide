@@ -1,586 +1,82 @@
-# ----------------------- Public Functions.
-# These are all documented in README_cmake.md.
-
-function(halide_use_image_io TARGET)
-    message(DEPRECATION "Use: target_link_libraries(${TARGET} PRIVATE Halide::ImageIO)")
-    target_link_libraries(${TARGET} PRIVATE Halide::ImageIO)
-endfunction()
-
-# Make a build target for a Generator.
-function(halide_generator NAME)
-    message(FATAL_ERROR "Just create an add_executable target that depends on Halide::Generator")
-endfunction()
-
-# Use a Generator target to emit a code library.
-function(halide_library_from_generator BASENAME)
+function(add_generator_stubs TARGET)
     set(options)
-    set(oneValueArgs FUNCTION_NAME GENERATOR HALIDE_TARGET GRADIENT_DESCENT)
-    set(multiValueArgs EXTRA_OUTPUTS FILTER_DEPS GENERATOR_ARGS HALIDE_TARGET_FEATURES INCLUDES)
-    cmake_parse_arguments(args "" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+    set(oneValueArgs FOR GENERATOR FUNCTION_NAME)
+    set(multiValueArgs PARAMS EXTRA_OUTPUTS TARGETS FEATURES)
+    cmake_parse_arguments(ARG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
-    if ("${args_GENERATOR}" STREQUAL "")
-        set(args_GENERATOR "${BASENAME}.generator")
+    if (NOT ARG_FOR)
+        message(FATAL_ERROR "Missing FOR argument specifying a Halide generator target")
     endif ()
-    if ("${args_FUNCTION_NAME}" STREQUAL "")
-        set(args_FUNCTION_NAME "${BASENAME}")
+
+    if (NOT ARG_GENERATOR)
+        get_target_property(ARG_GENERATOR ${ARG_FOR} NAME)
+        string(REPLACE ".generator" "" ARG_GENERATOR "${ARG_GENERATOR}")
     endif ()
-    if ("${args_HALIDE_TARGET}" STREQUAL "")
-        set(args_HALIDE_TARGET "host")
-    endif ()
-    if ("${args_GRADIENT_DESCENT}" STREQUAL "")
-        set(args_GRADIENT_DESCENT "0")
-    endif ()
-    # It's fine for EXTRA_OUTPUTS, GENERATOR_ARGS, FILTER_DEPS, HALIDE_TARGET_FEATURES to be empty
 
-    # Some sanity checking
-    if ("${args_HALIDE_TARGET}" MATCHES "^target=")
-        message(FATAL_ERROR "HALIDE_TARGET should not begin with 'target='.")
-    endif ()
-    foreach (FEATURE ${args_HALIDE_TARGET_FEATURES})
-        if ("${FEATURE}" STREQUAL "no_runtime")
-            message(FATAL_ERROR "HALIDE_TARGET_FEATURES may not contain 'no_runtime'.")
-        endif ()
-        # Note that this list isn't exhaustive, but will check enough of the likely
-        # common cases to enforce proper usage.
-        if ("${FEATURE}" STREQUAL "host" OR
-            "${FEATURE}" STREQUAL "x86" OR
-            "${FEATURE}" STREQUAL "arm" OR
-            "${FEATURE}" STREQUAL "32" OR
-            "${FEATURE}" STREQUAL "64" OR
-            "${FEATURE}" STREQUAL "linux" OR
-            "${FEATURE}" STREQUAL "osx" OR
-            "${FEATURE}" STREQUAL "windows" OR
-            "${FEATURE}" STREQUAL "ios" OR
-            "${FEATURE}" STREQUAL "android")
-            message(FATAL_ERROR "HALIDE_TARGET_FEATURES may not the Arch/OS/Bits string '${FEATURE}'; use HALIDE_TARGET instead.")
-        endif ()
-    endforeach ()
-    foreach (ARG ${args_GENERATOR_ARGS})
-        if ("${ARG}" MATCHES "^target=")
-            message(FATAL_ERROR "GENERATOR_ARGS may not include 'target=whatever'; use HALIDE_TARGET instead.")
-        endif ()
-    endforeach ()
+    set(TARGET_NAME "${TARGET}")
 
-    set(OUTPUTS static_library c_header registration)
-    foreach (E ${args_EXTRA_OUTPUTS})
-        # Convert legacy aliases
-        set(cpp_current "c_source")
-        set(h_current "c_header")
-        set(html_current "stmt_html")
-        set(o_current "object")
-        set(py.c_current "python_extension")
-        if (DEFINED ${E}_current)
-            message(DEPRECATION "'${E}' in EXTRA_OUTPUTS is deprecated, please use ${${E}_current}")
-            set(E ${${E}_current})
-        endif ()
+    add_custom_command(OUTPUT "${TARGET_NAME}.stub.h"
+                       COMMAND "${ARG_FOR}" -g "${ARG_GENERATOR}" -o . -e cpp_stub -n "${ARG_GENERATOR}"
+                       DEPENDS "${ARG_FOR}")
 
-        if ("${E}" STREQUAL "c_source")
-            message(FATAL_ERROR "halide_library('${BASENAME}') doesn't support '${E}' in EXTRA_OUTPUTS; please depend on '${BASENAME}_cc' instead.")
-        endif ()
-        if ("${E}" STREQUAL "cpp_stub")
-            message(FATAL_ERROR "halide_library('${BASENAME}') doesn't support '${E}' in EXTRA_OUTPUTS; please depend on '${BASENAME}.generator' instead.")
-        endif ()
-        list(FIND OUTPUTS ${E} index)
-        if (${index} GREATER -1)
-            message(FATAL_ERROR "Duplicate entry ${E} in extra_outputs.")
-        endif ()
-        list(APPEND OUTPUTS ${E})
-    endforeach ()
+    add_custom_target("${TARGET_NAME}.stub.update"
+                      DEPENDS
+                      "${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}.stub.h"
+                      )
 
-    get_property(GENERATOR_NAME TARGET "${args_GENERATOR}_stub_gen" PROPERTY _HALIDE_GENERATOR_NAME)
-
-    # Create a directory to contain generator specific intermediate files
-    _halide_genfiles_dir(${BASENAME} GENFILES_DIR)
-
-    # Append HALIDE_TARGET_FEATURES to the target(s)
-    set(TARGET_WITH_FEATURES "${args_HALIDE_TARGET}")
-    foreach (FEATURE ${args_HALIDE_TARGET_FEATURES})
-        _halide_add_target_features("${TARGET_WITH_FEATURES}" ${FEATURE} TARGET_WITH_FEATURES)
-    endforeach ()
-    # Select the runtime to use *before* adding no_runtime
-    _halide_library_runtime("${TARGET_WITH_FEATURES}" RUNTIME_NAME)
-    _halide_add_target_features("${TARGET_WITH_FEATURES}" "no_runtime" TARGET_WITH_FEATURES)
-
-    set(GENERATOR_EXEC_ARGS "-o" "${GENFILES_DIR}")
-    list(APPEND GENERATOR_EXEC_ARGS "-d" "${args_GRADIENT_DESCENT}")
-    list(APPEND GENERATOR_EXEC_ARGS "-g" "${GENERATOR_NAME}")
-    list(APPEND GENERATOR_EXEC_ARGS "-f" "${args_FUNCTION_NAME}")
-    list(APPEND GENERATOR_EXEC_ARGS "target=${TARGET_WITH_FEATURES}")
-    # GENERATOR_ARGS always come last
-    list(APPEND GENERATOR_EXEC_ARGS ${args_GENERATOR_ARGS})
-
-    set(assembly_ext ".s")
-    set(bitcode_ext ".bc")
-    set(c_header_ext ".h")
-    set(featurization_ext ".featurization")
-    set(llvm_assembly_ext ".ll")
-    set(object_ext ${CMAKE_C_OUTPUT_EXTENSION})
-    set(python_extension_ext ".py.cpp")
-    set(pytorch_wrapper_ext ".pytorch.h")
-    set(registration_ext ".registration.cpp")
-    set(schedule_ext ".schedule.h")
-    set(static_library_ext ${CMAKE_STATIC_LIBRARY_SUFFIX})
-    set(stmt_ext ".stmt")
-    set(stmt_html_ext ".stmt.html")
-
-    set(OUTPUT_FILES)
-    foreach (OUTPUT ${OUTPUTS})
-        if (NOT DEFINED ${OUTPUT}_ext)
-            message(FATAL_ERROR "halide_library('${BASENAME}'): output '${OUTPUT}' is not supported!")
-        endif ()
-
-        list(APPEND OUTPUT_FILES "${GENFILES_DIR}/${BASENAME}${${OUTPUT}_ext}")
-    endforeach ()
-
-    # Output everything (except for the generated .cpp file)
-    string(REPLACE ";" "," OUTPUTS_COMMA "${OUTPUTS}")
-    set(ARGS_WITH_OUTPUTS "-e" ${OUTPUTS_COMMA} ${GENERATOR_EXEC_ARGS})
-    _halide_add_exec_generator_target(
-            "${BASENAME}_lib_gen"
-            GENERATOR_BINARY "${args_GENERATOR}_binary"
-            GENERATOR_ARGS "${ARGS_WITH_OUTPUTS}"
-            OUTPUTS ${OUTPUT_FILES}
-    )
-
-    add_library("${BASENAME}" STATIC IMPORTED)
-    add_dependencies("${BASENAME}" "${BASENAME}_lib_gen" "${RUNTIME_NAME}")
-    set_target_properties("${BASENAME}" PROPERTIES
-                          IMPORTED_LOCATION "${GENFILES_DIR}/${BASENAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
-                          INTERFACE_INCLUDE_DIRECTORIES "${GENFILES_DIR}" ${args_INCLUDES}
-                          INTERFACE_LINK_LIBRARIES "${RUNTIME_NAME};${args_FILTER_DEPS};${CMAKE_DL_LIBS}")
-    target_link_libraries("${BASENAME}" INTERFACE Threads::Threads)
-
-    # A separate invocation for the generated .cpp file,
-    # since it's rarely used, and some code will fail at Generation
-    # time at present (e.g. code with predicated loads or stores).
-    set(ARGS_WITH_OUTPUTS "-e" "c_source" ${GENERATOR_EXEC_ARGS})
-    _halide_add_exec_generator_target(
-            "${BASENAME}_cc_gen"
-            GENERATOR_BINARY "${args_GENERATOR}_binary"
-            GENERATOR_ARGS "${ARGS_WITH_OUTPUTS}"
-            OUTPUTS "${GENFILES_DIR}/${BASENAME}.halide_generated.cpp"
-    )
-
-    add_library("${BASENAME}_cc" STATIC "${GENFILES_DIR}/${BASENAME}.halide_generated.cpp")
-    # Needs _lib_gen as well, to get the .h file
-    add_dependencies("${BASENAME}_cc" "${BASENAME}_lib_gen" "${BASENAME}_cc_gen")
-    target_link_libraries("${BASENAME}_cc" PRIVATE ${args_FILTER_DEPS})
-    target_include_directories("${BASENAME}_cc" PRIVATE "${HALIDE_INCLUDE_DIR}")
-    target_include_directories("${BASENAME}_cc" PUBLIC "${GENFILES_DIR}" ${args_INCLUDES})
-    # Very few of the cc_libs are needed, so exclude from "all".
-    set_target_properties("${BASENAME}_cc" PROPERTIES EXCLUDE_FROM_ALL TRUE)
-
-    # Code to build the BASENAME.rungen target
-    set(RUNGEN "${BASENAME}.rungen")
-    add_executable("${RUNGEN}" "${GENFILES_DIR}/${BASENAME}.registration.cpp")
-    target_link_libraries("${RUNGEN}" PRIVATE Halide::RunGenMain "${BASENAME}")
-    # Not all Generators will build properly with RunGen (e.g., missing
-    # external dependencies), so exclude them from the "ALL" targets
-    set_target_properties("${RUNGEN}" PROPERTIES EXCLUDE_FROM_ALL TRUE)
-
-    # BASENAME.run simply runs the BASENAME.rungen target
-    add_custom_target("${BASENAME}.run"
-                      COMMAND "${RUNGEN}" "${RUNARGS}"
-                      DEPENDS "${RUNGEN}")
-    set_target_properties("${BASENAME}.run" PROPERTIES EXCLUDE_FROM_ALL TRUE)
+    add_library("${TARGET}" INTERFACE)
+    target_sources("${TARGET}" INTERFACE "${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}.stub.h")
+    target_include_directories("${TARGET}" INTERFACE "${CMAKE_CURRENT_BINARY_DIR}")
+    add_dependencies("${TARGET}" "${TARGET_NAME}.stub.update")
 endfunction()
 
-# Rule to build and use a Generator; it's convenient sugar around
-# halide_generator() + halide_library_from_generator().
-function(halide_library NAME)
-    set(oneValueArgs FUNCTION_NAME HALIDE_TARGET GENERATOR GENERATOR_NAME)
-    set(multiValueArgs EXTRA_OUTPUTS FILTER_DEPS GENERATOR_DEPS HALIDE_TARGET_FEATURES INCLUDES GENERATOR_ARGS SRCS)
-    cmake_parse_arguments(args "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
-
-    if (NOT "${args_GENERATOR}" STREQUAL "")
-        message(FATAL_ERROR "halide_library('${BASENAME}') doesn't take a GENERATOR argument. Did you mean to use GENERATOR_NAME, or the halide_library_from_generator() rule?")
-    endif ()
-
-    halide_generator("${NAME}.generator"
-                     SRCS ${args_SRCS}
-                     DEPS ${args_GENERATOR_DEPS}
-                     INCLUDES ${args_INCLUDES}
-                     GENERATOR_NAME ${args_GENERATOR_NAME})
-
-    halide_library_from_generator("${NAME}"
-                                  DEPS ${args_FILTER_DEPS}
-                                  INCLUDES ${args_INCLUDES}
-                                  GENERATOR "${NAME}.generator"
-                                  FUNCTION_NAME ${args_FUNCTION_NAME}
-                                  HALIDE_TARGET ${args_HALIDE_TARGET}
-                                  HALIDE_TARGET_FEATURES ${args_HALIDE_TARGET_FEATURES}
-                                  GENERATOR_ARGS ${args_GENERATOR_ARGS}
-                                  EXTRA_OUTPUTS ${args_EXTRA_OUTPUTS})
-endfunction()
-
-# ----------------------- Private Functions.
-# All functions, properties, variables, etc. that begin with an underscore
-# should be assumed to be private implementation details; don't rely on them externally.
-
-# Get (and lazily create) the generated-files directory for Generators.
-function(_halide_genfiles_dir NAME OUTVAR)
-    set(GENFILES_DIR "${Halide_BINARY_DIR}/${CMAKE_CFG_INTDIR}/genfiles/${NAME}")
-    file(MAKE_DIRECTORY "${GENFILES_DIR}")
-    set(${OUTVAR} "${GENFILES_DIR}" PARENT_SCOPE)
-endfunction()
-
-# Given the target of a static library, return the path to the actual .a file
-function(_halide_get_static_library_actual_path TARGET OUTVAR)
-    get_target_property(DIR ${TARGET} LIBRARY_OUTPUT_DIRECTORY)
-    if (DIR)
-        set(DIR "${DIR}/")
-    else ()
-        # Set to empty string since it could be "DIR-NOTFOUND"
-        set(DIR "")
-    endif ()
-    set(${OUTVAR} "${DIR}${CMAKE_CFG_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}${TARGET}${CMAKE_STATIC_LIBRARY_SUFFIX}" PARENT_SCOPE)
-endfunction()
-
-# Adds features to a target string, canonicalizing the result.
-# If multitarget, features are added to all.
-function(_halide_add_target_features HALIDE_TARGET HALIDE_FEATURES OUTVAR)
-    string(REPLACE "," ";" MULTITARGETS "${HALIDE_TARGET}")
-    foreach (T ${MULTITARGETS})
-        string(REPLACE "-" ";" NEW_T "${T}")
-        foreach (F ${HALIDE_FEATURES})
-            list(APPEND NEW_T ${F})
-        endforeach ()
-        string(REPLACE ";" "-" NEW_T "${NEW_T}")
-        _halide_canonicalize_target("${NEW_T}" NEW_T)
-        list(APPEND NEW_MULTITARGETS ${NEW_T})
-    endforeach ()
-    string(REPLACE ";" "," NEW_MULTITARGETS "${NEW_MULTITARGETS}")
-    set(${OUTVAR} "${NEW_MULTITARGETS}" PARENT_SCOPE)
-endfunction()
-
-# If any of the (multi) targets have the feature specified, set outvar to true.
-# Otherwise set outvar to false.
-function(_halide_has_target_feature HALIDE_TARGET HALIDE_FEATURE OUTVAR)
-    set(${OUTVAR} FALSE PARENT_SCOPE)
-    string(REPLACE "," ";" FEATURES "${HALIDE_TARGET}")
-    string(REPLACE "-" ";" FEATURES "${HALIDE_TARGET}")
-    foreach (F ${FEATURES})
-        if ("${F}" STREQUAL "${HALIDE_FEATURE}")
-            set(${OUTVAR} TRUE PARENT_SCOPE)
-        endif ()
-    endforeach ()
-endfunction()
-
-# Split the target into base and feature lists.
-function(_halide_split_target HALIDE_TARGET OUTVAR_BASE OUTVAR_FEATURES)
-    if ("${HALIDE_TARGET}" MATCHES ".*,.*")
-        message(FATAL_ERROR "Multitarget may not be specified in _halide_split_target(${HALIDE_TARGET})")
-    endif ()
-
-    string(REPLACE "-" ";" FEATURES "${HALIDE_TARGET}")
-    list(LENGTH FEATURES LEN)
-    if ("${LEN}" EQUAL 0)
-        message(FATAL_ERROR "Empty target")
-    endif ()
-
-    list(GET FEATURES 0 BASE)
-    if ("${BASE}" STREQUAL "host")
-        list(REMOVE_AT FEATURES 0)
-    else ()
-        if ("${LEN}" LESS 3)
-            message(FATAL_ERROR "Illegal target (${HALIDE_TARGET})")
-        endif ()
-        list(GET FEATURES 0 1 2 BASE)
-        list(REMOVE_AT FEATURES 0 1 2)
-    endif ()
-    set(${OUTVAR_BASE} "${BASE}" PARENT_SCOPE)
-    set(${OUTVAR_FEATURES} "${FEATURES}" PARENT_SCOPE)
-endfunction()
-
-# Join base and feature lists back into a target. Do not canonicalize.
-function(_halide_join_target BASE FEATURES OUTVAR)
-    foreach (F ${FEATURES})
-        list(APPEND BASE ${F})
-    endforeach ()
-    string(REPLACE ";" "-" BASE "${BASE}")
-    set(${OUTVAR} "${BASE}" PARENT_SCOPE)
-endfunction()
-
-# Alphabetizes the features part of the target to make sure they always match no
-# matter the concatenation order of the target string pieces. Remove duplicates.
-function(_halide_canonicalize_target HALIDE_TARGET OUTVAR)
-    if ("${HALIDE_TARGET}" MATCHES ".*,.*")
-        message(FATAL_ERROR "Multitarget may not be specified in _halide_canonicalize_target(${HALIDE_TARGET})")
-    endif ()
-    _halide_split_target("${HALIDE_TARGET}" BASE FEATURES)
-    list(REMOVE_DUPLICATES FEATURES)
-    list(SORT FEATURES)
-    _halide_join_target("${BASE}" "${FEATURES}" HALIDE_TARGET)
-    set(${OUTVAR} "${HALIDE_TARGET}" PARENT_SCOPE)
-endfunction()
-
-# Given a HALIDE_TARGET, return the CMake target name for the runtime.
-function(_halide_runtime_target_name HALIDE_TARGET OUTVAR)
-    # MULTITARGETS = HALIDE_TARGET.split(",")
-    string(REPLACE "," ";" MULTITARGETS "${HALIDE_TARGET}")
-    # HALIDE_TARGET = MULTITARGETS.final_element()
-    list(GET MULTITARGETS -1 HALIDE_TARGET)
-    _halide_canonicalize_target("${HALIDE_TARGET}" HALIDE_TARGET)
-    _halide_split_target("${HALIDE_TARGET}" BASE FEATURES)
-    # Discard target features which do not affect the contents of the runtime.
-    list(REMOVE_DUPLICATES FEATURES)
-    list(REMOVE_ITEM FEATURES "user_context" "no_asserts" "no_bounds_query" "no_runtime" "profile")
-    list(SORT FEATURES)
-    # Now build up the name
-    set(RESULT "halide_rt")
-    foreach (B ${BASE})
-        list(APPEND RESULT ${B})
-    endforeach ()
-    if (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
-        set(HALIDE_ABBREVIATE_TARGETS TRUE)
-    endif ()
-    if (HALIDE_ABBREVIATE_TARGETS)
-        # Windows systems still have limits of 260-character pathnames in
-        # lots of situations, and CMake can replicate project names multiple times
-        # in the same path, so long target strings can cause us to overflow
-        # this limit, even if CMAKE_OBJECT_PATH_MAX is set. So here we make
-        # algorithmically-generated abbreviations for all the feature strings
-        # and use those for external cmaketarget/filenames.
-
-        # Halide Target Features we know about. (This need not be exact, but should
-        # be close for best compression.)
-        list(APPEND KNOWN_FEATURES
-             jit
-             debug
-             no_asserts
-             no_bounds_query
-             sse41
-             avx
-             avx2
-             fma
-             fma4
-             f16c
-             armv7s
-             no_neon
-             vsx
-             power_arch_2_07
-             cuda
-             cuda_capability_30
-             cuda_capability_32
-             cuda_capability_35
-             cuda_capability_50
-             cuda_capability_61
-             opencl
-             cl_doubles
-             cl_half
-             cl_atomics64
-             opengl
-             openglcompute
-             egl
-             user_context
-             matlab
-             profile
-             no_runtime
-             metal
-             mingw
-             c_plus_plus_name_mangling
-             large_buffers
-             hvx_64
-             hvx_128
-             hvx_v62
-             hvx_v65
-             hvx_v66
-             hvx_shared_object
-             fuzz_float_stores
-             soft_float_abi
-             msan
-             avx512
-             avx512_knl
-             avx512_skylake
-             avx512_cannonlake
-             trace_loads
-             trace_stores
-             trace_realizations
-             d3d12compute
-             strict_float
-             tsan
-             asan
-             check_unsafe_promises
-             hexagon_dma
-             embed_bitcode
-             disable_llvm_loop_opt
-             enable_llvm_loop_opt
-             wasm_simd128
-             wasm_signext
-             sve
-             sve2
-             )
-        # Synthesize a one-or-two-char abbreviation based on the feature's position
-        # in the KNOWN_FEATURES list.
-        set(I 0)
-        foreach (F ${KNOWN_FEATURES})
-            math(EXPR II "97 + (${I} / 26)")
-            if ("${II}" GREATER 97)
-                string(ASCII ${II} C1)
-            else ()
-                set(C1 "")
-            endif ()
-            math(EXPR II "97 + (${I} % 26)")
-            string(ASCII ${II} C2)
-            # CMake has no map-like structure; we'll fake it using synthesized variable names.
-            set(HALIDE_TARGET_FEATURE_ABBREVIATION_${F} ${C1}${C2})
-            math(EXPR I "${I} + 1")
-        endforeach ()
-    endif ()
-
-    foreach (F ${FEATURES})
-        if (DEFINED HALIDE_TARGET_FEATURE_ABBREVIATION_${F})
-            list(APPEND RESULT ${HALIDE_TARGET_FEATURE_ABBREVIATION_${F}})
-        else ()
-            # Unknown features get appended to the end
-            list(APPEND RESULT ${F})
-        endif ()
-    endforeach ()
-
-    # Finally, convert from a list into a _ separated name
-    string(REPLACE ";" "_" RESULT "${RESULT}")
-    set(${OUTVAR} "${RESULT}" PARENT_SCOPE)
-endfunction()
-
-# Generate the runtime library for the given halide_target; return
-# its cmake target name in outvar.
-function(_halide_library_runtime HALIDE_TARGET OUTVAR)
-    if (NOT TARGET halide_library_runtime.generator)
-        halide_generator(halide_library_runtime.generator SRCS "")
-    endif ()
-
-    string(REPLACE "," ";" MULTITARGETS "${HALIDE_TARGET}")
-    list(GET MULTITARGETS -1 HALIDE_TARGET)
-    _halide_runtime_target_name("${HALIDE_TARGET}" RUNTIME_NAME)
-    if (NOT TARGET "${RUNTIME_NAME}_runtime_gen")
-        set(RUNTIME_LIB "${RUNTIME_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}")
-
-        _halide_genfiles_dir(${RUNTIME_NAME} GENFILES_DIR)
-        set(GENERATOR_EXEC_ARGS "-o" "${GENFILES_DIR}")
-        list(APPEND GENERATOR_EXEC_ARGS "-r" "${RUNTIME_NAME}")
-        list(APPEND GENERATOR_EXEC_ARGS "target=${HALIDE_TARGET}")
-
-        _halide_add_exec_generator_target(
-                "${RUNTIME_NAME}_runtime_gen"
-                GENERATOR_BINARY "halide_library_runtime.generator_binary"
-                GENERATOR_ARGS "${GENERATOR_EXEC_ARGS}"
-                OUTPUTS "${GENFILES_DIR}/${RUNTIME_LIB}"
-        )
-
-        # By default, IMPORTED libraries are only visible to the declaration
-        # directories (and subdirectories); since runtime libraries are declared
-        # lazily, we need to ensure they are globally visible to avoid ordering issues.
-        add_library("${RUNTIME_NAME}" STATIC IMPORTED GLOBAL)
-        add_dependencies("${RUNTIME_NAME}" "${RUNTIME_NAME}_runtime_gen")
-        set_target_properties("${RUNTIME_NAME}" PROPERTIES
-                              IMPORTED_LOCATION "${GENFILES_DIR}/${RUNTIME_LIB}")
-
-        # It's hard to force specific system libraries to the end of link order
-        # in CMake, because of course it is; to mitigate this, we do snooping
-        # here for common targets with extra dependencies and add them to
-        # the dependencies for runtime, to ensure that they get sorted into
-        # an appropriate spot in link order.
-        set(RT_LIBS)
-
-        # opengl
-        _halide_has_target_feature("${HALIDE_TARGET}" opengl HAS_OPENGL)
-        if ("${HAS_OPENGL}")
-            find_package(OpenGL QUIET)
-            if (OpenGL_FOUND)
-                list(APPEND RT_LIBS ${OPENGL_LIBRARIES})
-            endif ()
-            if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-                # Linux systems need X11 for OpenGL as well
-                find_package(X11 QUIET)
-                if (X11_FOUND)
-                    list(APPEND RT_LIBS ${X11_LIBRARIES})
-                endif ()
-            endif ()
-        endif ()
-
-        set_target_properties("${RUNTIME_NAME}" PROPERTIES
-                              INTERFACE_LINK_LIBRARIES "${RT_LIBS}")
-
-    endif ()
-    set(${OUTVAR} "${RUNTIME_NAME}" PARENT_SCOPE)
-endfunction()
-
-function(_halide_add_exec_generator_target EXEC_TARGET)
+# TODO: investigate storing these options in properties
+function(add_halide_library TARGET)
     set(options)
-    set(oneValueArgs GENERATOR_BINARY)
-    set(multiValueArgs OUTPUTS GENERATOR_ARGS)
-    cmake_parse_arguments(args "" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+    set(oneValueArgs FROM GENERATOR FUNCTION_NAME)
+    set(multiValueArgs PARAMS EXTRA_OUTPUTS TARGETS FEATURES)
+    cmake_parse_arguments(ARG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
-    set(EXTRA_OUTPUTS_COMMENT)
-    foreach (OUTPUT ${args_OUTPUTS})
-        if ((${OUTPUT} MATCHES "^.*\\.h$")
-             OR (${OUTPUT} MATCHES "^.*${CMAKE_STATIC_LIBRARY_SUFFIX}$")
-             OR (${OUTPUT} MATCHES "^.*\\.registration\\.cpp$"))
-            # Ignore
-        else ()
-            set(EXTRA_OUTPUTS_COMMENT "${EXTRA_OUTPUTS_COMMENT}\nEmitting extra Halide output: ${OUTPUT}")
-        endif ()
-    endforeach ()
-
-    add_custom_target(${EXEC_TARGET} DEPENDS ${args_OUTPUTS})
-
-    # LLVM may leak memory during generator execution. If projects are built with address sanitizer enabled,
-    # this may cause generators to fail, making it hard to use Halide and address sanitizer at the same time.
-    # To work around this, we execute generators with an environment setting to disable leak checking.
-    set(RUN_WITHOUT_LEAKCHECK ${CMAKE_COMMAND} -E env "ASAN_OPTIONS=detect_leaks=0")
-
-    if (NOT WIN32)
-        add_custom_command(
-                OUTPUT ${args_OUTPUTS}
-                DEPENDS ${args_GENERATOR_BINARY}
-                # Reduce noise during build; uncomment for debugging
-                # COMMAND ${CMAKE_COMMAND} -E echo Running $<TARGET_FILE:${args_GENERATOR_BINARY}> ${args_GENERATOR_ARGS}
-                COMMAND ${RUN_WITHOUT_LEAKCHECK} $<TARGET_FILE:${args_GENERATOR_BINARY}> ${args_GENERATOR_ARGS}
-                COMMENT "${EXTRA_OUTPUTS_COMMENT}"
-        )
-    else ()
-        add_custom_command(
-                OUTPUT ${args_OUTPUTS}
-                DEPENDS ${args_GENERATOR_BINARY}
-                # Reduce noise during build; uncomment for debugging
-                # COMMAND ${CMAKE_COMMAND} -E echo copying $<TARGET_FILE:Halide::Halide> to "$<TARGET_FILE_DIR:${args_GENERATOR_BINARY}>"
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:Halide::Halide> "$<TARGET_FILE_DIR:${args_GENERATOR_BINARY}>"
-                # Reduce noise during build; uncomment for debugging
-                # COMMAND ${CMAKE_COMMAND} -E echo Running $<TARGET_FILE:${args_GENERATOR_BINARY}> ${args_GENERATOR_ARGS}
-                COMMAND ${RUN_WITHOUT_LEAKCHECK} $<TARGET_FILE:${args_GENERATOR_BINARY}> ${args_GENERATOR_ARGS}
-                COMMENT "${EXTRA_OUTPUTS_COMMENT}"
-        )
+    if (NOT ARG_FROM)
+        message(FATAL_ERROR "Missing FROM argument specifying a Halide generator target")
     endif ()
-    foreach (OUT ${args_OUTPUTS})
-        set_source_files_properties(${OUT} PROPERTIES GENERATED TRUE)
-    endforeach ()
-endfunction()
 
-function(_halide_force_link_library NAME LIB)
-    # We need to ensure that the libraries are linked in with --whole-archive
-    # (or the equivalent), to ensure that the Generator-registration code
-    # isn't omitted. Sadly, there's no portable way to do this, so we do some
-    # special-casing here:
-    if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-        _halide_get_static_library_actual_path("${LIB}" LIB_ACTUAL_PATH)
-        target_link_libraries("${NAME}" PRIVATE "${LIB}")
-        # Append to LINK_FLAGS, since we may call this multiple times
-        get_property(flags TARGET "${NAME}" PROPERTY LINK_FLAGS)
-        set(flags "${flags} -Wl,-force_load,${LIB_ACTUAL_PATH}")
-        set_target_properties("${NAME}" PROPERTIES LINK_FLAGS ${flags})
-    elseif (MSVC)
-        # Note that this requires VS2015 R2+
-        target_link_libraries("${NAME}" PRIVATE "${LIB}")
-        # Append to LINK_FLAGS, since we may call this multiple times
-        get_property(flags TARGET "${NAME}" PROPERTY LINK_FLAGS)
-        set(flags "${flags} /WHOLEARCHIVE:${LIB}.lib")
-        set_target_properties("${NAME}" PROPERTIES LINK_FLAGS ${flags})
-    else ()
-        # Assume Linux or similar
-        target_link_libraries("${NAME}" PRIVATE -Wl,--whole-archive "${LIB}" -Wl,-no-whole-archive)
+    if (NOT ARG_GENERATOR)
+        set(ARG_GENERATOR "${TARGET}")
     endif ()
-endfunction()
 
-define_property(TARGET PROPERTY _HALIDE_GENERATOR_NAME
-                BRIEF_DOCS "Internal use by Halide build rules: do not use externally"
-                FULL_DOCS "Internal use by Halide build rules: do not use externally")
+    if (NOT ARG_FUNCTION_NAME)
+        set(ARG_FUNCTION_NAME "${ARG_GENERATOR}")
+    endif ()
+
+    if (NOT ARG_TARGETS)
+        set(ARG_TARGETS host)
+    else ()
+        string(REPLACE ";" "," ARG_TARGETS "${ARG_TARGETS}")
+    endif ()
+
+    # TODO: handle extra outputs and features.
+
+    ##
+    # Main library target for filter.
+    ##
+
+    add_custom_command(OUTPUT
+                       "${ARG_FUNCTION_NAME}.a"
+                       "${ARG_FUNCTION_NAME}.h"
+                       "${ARG_FUNCTION_NAME}.registration.cpp"
+                       COMMAND "${ARG_FROM}" -g "${ARG_GENERATOR}" -f "${ARG_FUNCTION_NAME}" -o . target=${ARG_TARGETS} ${ARG_PARAMS}
+                       DEPENDS "${ARG_FROM}")
+
+    add_custom_target("${ARG_FUNCTION_NAME}.update"
+                      DEPENDS
+                      "${CMAKE_CURRENT_BINARY_DIR}/${ARG_FUNCTION_NAME}.a"
+                      "${CMAKE_CURRENT_BINARY_DIR}/${ARG_FUNCTION_NAME}.h"
+                      "${CMAKE_CURRENT_BINARY_DIR}/${ARG_FUNCTION_NAME}.registration.cpp"
+                      )
+
+    add_library("${TARGET}" STATIC IMPORTED)
+    set_target_properties("${ARG_FUNCTION_NAME}" PROPERTIES IMPORTED_LOCATION "${CMAKE_CURRENT_BINARY_DIR}/${ARG_FUNCTION_NAME}.a")
+    target_include_directories("${TARGET}" INTERFACE "${CMAKE_CURRENT_BINARY_DIR}")
+    add_dependencies("${TARGET}" "${ARG_FUNCTION_NAME}.update")
+endfunction()
