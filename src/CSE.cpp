@@ -228,6 +228,7 @@ class RemoveLets : public IRGraphMutator {
 
 class CSEEveryExprInStmt : public IRMutator {
     bool lift_all;
+
 public:
     using IRMutator::mutate;
 
