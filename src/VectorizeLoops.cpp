@@ -1148,7 +1148,6 @@ class VectorSubs : public IRMutator {
                 output_lanes = store_index.type().lanes() / store_ir.repetitions;
 
                 store_index = Ramp::make(store_ir.base, store_ir.stride, output_lanes);
-                debug(0) << b << " " << store_index << " " << output_lanes << "\n";
                 b = VectorReduce::make(reduce_op, b, output_lanes);
             }
 
