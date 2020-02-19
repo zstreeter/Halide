@@ -12,6 +12,7 @@ function(halide_define_aot_test NAME)
 
     set(TARGET "generator_aot_${NAME}")
     add_executable("${TARGET}" "${NAME}_aottest.cpp")
+    target_include_directories("${TARGET}" PRIVATE "${Halide_SOURCE_DIR}/test/common")
     target_link_libraries(${TARGET} PRIVATE Halide::Halide ${NAME} ${CMAKE_DL_LIBS} Threads::Threads)
     add_halide_test("${TARGET}" GROUPS generator travis)
 endfunction(halide_define_aot_test)
@@ -65,29 +66,28 @@ set(GENERATOR_SRCS
 # Common extra functionality needed by certain tests.
 add_library(cxx_mangling_externs STATIC cxx_mangling_externs.cpp)
 
-# Special cases for various tests.
-set(PARAMS_stubtest
-    untyped_buffer_input.type=uint8 untyped_buffer_input.dim=3
-    simple_input.type=float32
-    array_input.type=float32 array_input.size=2
-    int_arg.size=2
-    tuple_output.type=float32,float32
-    vectorize=true
-    )
+# Special configuration for various tests.
+set(FN_NAME_cxx_mangling HalideTest::AnotherNamespace::cxx_mangling)
+set(FEATURES_cxx_mangling c_plus_plus_name_mangling)
+
+set(FEATURES_gpu_object_lifetime debug)
 
 set(FEATURES_matlab matlab)
 
 set(FEATURES_memory_profiler_mandelbrot profile)
 
+set(FEATURES_msan msan)
+
 set(HL_TARGET_multitarget host host-debug)
 set(FEATURES_multitarget c_plus_plus_name_mangling)
 set(FN_NAME_multitarget HalideTest::multitarget)
 
+set(PARAMS_pyramid levels=10)
+
+set(PARAMS_string_param rpn_expr="5 y * x +")
+
 set(FEATURES_user_context user_context)
 set(FEATURES_user_context_insanity user_context)
-
-set(FN_NAME_cxx_mangling HalideTest::AnotherNamespace::cxx_mangling)
-set(FEATURES_cxx_mangling c_plus_plus_name_mangling)
 
 # Create the generator / filter-library targets.
 foreach (FILE ${GENERATOR_SRCS})
@@ -109,14 +109,14 @@ foreach (FILE ${GENERATOR_SRCS})
                        FEATURES ${FEATURES})
 endforeach ()
 
+target_link_libraries(cxx_mangling INTERFACE cxx_mangling_externs)
+
+target_link_libraries(external_code.generator PRIVATE external_code_generator_deps)
+
 add_halide_library(nested_externs_root FROM nested_externs.generator)
 add_halide_library(nested_externs_inner FROM nested_externs.generator)
 add_halide_library(nested_externs_combine FROM nested_externs.generator)
 add_halide_library(nested_externs_leaf FROM nested_externs.generator)
-
-target_link_libraries(external_code.generator PRIVATE external_code_generator_deps)
-
-target_link_libraries(cxx_mangling INTERFACE cxx_mangling_externs)
 
 ##
 # Define a nontrivial dependency for external_code.generator
@@ -152,7 +152,6 @@ add_library(external_code_generator_deps OBJECT "${EC32}.cpp" "${EC64}.cpp" "${E
 ##
 
 #halide_define_aot_test(cleanup_on_error) # requires access to internal header runtime/device_interface.h
-#halide_define_aot_test(stubuser)  # uses stubs, which are currently not implemented
 halide_define_aot_test(acquire_release)
 halide_define_aot_test(argvcall)
 halide_define_aot_test(can_use_target)
@@ -164,11 +163,15 @@ halide_define_aot_test(error_codes)
 halide_define_aot_test(example)
 halide_define_aot_test(external_code)
 halide_define_aot_test(float16_t)
+halide_define_aot_test(gpu_object_lifetime)
 halide_define_aot_test(gpu_only)
 halide_define_aot_test(image_from_array)
 halide_define_aot_test(mandelbrot)
 halide_define_aot_test(memory_profiler_mandelbrot)
+halide_define_aot_test(msan)
 halide_define_aot_test(output_assign)
+halide_define_aot_test(pyramid)
+halide_define_aot_test(string_param)
 halide_define_aot_test(user_context)
 halide_define_aot_test(user_context_insanity)
 halide_define_aot_test(variable_num_threads)
@@ -189,33 +192,6 @@ if (TARGET_PTX)
                                   HALIDE_TARGET_FEATURES c_plus_plus_name_mangling cuda)
     target_link_libraries(generator_aot_cxx_mangling PRIVATE cxx_mangling_gpu)
 endif ()
-
-# gpu_object_lifetime can build with a variety of GPU targets (or none).
-# TODO: disable for now, as we currently run buildbot/Travis tests on machines that don't have these available.
-# if(TARGET_PTX)
-#   halide_define_aot_test(gpu_object_lifetime
-#                          HALIDE_TARGET_FEATURES cuda debug)
-# elseif(TARGET_OPENCL)
-#   halide_define_aot_test(gpu_object_lifetime
-#                          HALIDE_TARGET_FEATURES opencl debug)
-# elseif(TARGET_METAL)
-#   halide_define_aot_test(gpu_object_lifetime
-#                          HALIDE_TARGET_FEATURES metal debug)
-# else()
-halide_define_aot_test(gpu_object_lifetime HALIDE_TARGET_FEATURES debug)
-# endif()
-
-halide_define_aot_test(pyramid GENERATOR_ARGS levels=10)
-
-halide_define_aot_test(string_param GENERATOR_ARGS rpn_expr="5 y * x +")
-
-halide_define_aot_test(msan HALIDE_TARGET_FEATURES msan)
-
-# stubtest has input and output funcs with undefined types; this is fine for stub
-# usage (the types can be inferred), but for AOT compilation, we must make the types
-# concrete via generator args.
-
-halide_define_aot_test(stubtest GENERATOR_ARGS ${STUBTEST_GENERATOR_ARGS})
 
 # Tests that require additional dependencies, args, etc
 set(MDTEST_GEN_ARGS
@@ -249,12 +225,15 @@ set(MDTEST_GEN_ARGS
     array_outputs8.size=2
     array_outputs9.size=2
     )
+
 halide_define_aot_test(metadata_tester GENERATOR_ARGS "${MDTEST_GEN_ARGS}")
+
 halide_library_from_generator(metadata_tester_ucon
                               GENERATOR metadata_tester.generator
                               HALIDE_TARGET_FEATURES user_context
                               GENERATOR_ARGS "${MDTEST_GEN_ARGS}"
                               EXTRA_OUTPUTS stmt assembly)
+
 target_link_libraries(generator_aot_metadata_tester PUBLIC metadata_tester_ucon)
 
 # needs gradient-descent variant as well
