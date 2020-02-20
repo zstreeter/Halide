@@ -3,8 +3,8 @@
 using namespace Halide;
 
 int main(int argc, char **argv) {
-    for (int dst_lanes : {1, 2, 3, 4}) {
-        for (int reduce_factor : {2, 3, 4, 8}) {
+    for (int dst_lanes : {1, 3}) {
+        for (int reduce_factor : {2, 3, 4}) {
             std::vector<Type> types =
                 {UInt(8), Int(8), UInt(16), Int(16), UInt(32), Int(32),
                  UInt(64), Int(64), Float(16), Float(32), Float(64)};
@@ -15,6 +15,8 @@ int main(int argc, char **argv) {
                     if (std::find(types.begin(), types.end(), dst_type) == types.end()) {
                         continue;
                     }
+
+                    printf("%d %d %d\n", dst_lanes, reduce_factor, widen_factor);
 
                     for (int op = 0; op < 7; op++) {
                         if (dst_type == Float(16) && reduce_factor > 2) {
@@ -51,24 +53,37 @@ int main(int argc, char **argv) {
                             ref(x) *= rhs;
                             break;
                         case 2:
+                            // Widening min/max reductions are not interesting
+                            if (widen_factor != 1) {
+                                continue;
+                            }
                             f(x) = rhs.type().min();
                             ref(x) = rhs.type().min();
                             f(x) = max(f(x), rhs);
                             ref(x) = max(f(x), rhs);
                             break;
                         case 3:
+                            if (widen_factor != 1) {
+                                continue;
+                            }
                             f(x) = rhs.type().max();
                             ref(x) = rhs.type().max();
                             f(x) = min(f(x), rhs);
                             ref(x) = min(f(x), rhs);
                             break;
                         case 4:
+                            if (widen_factor != 1) {
+                                continue;
+                            }
                             f(x) = cast<bool>(false);
                             ref(x) = cast<bool>(false);
                             f(x) = f(x) || rhs;
                             ref(x) = f(x) || rhs;
                             break;
                         case 5:
+                            if (widen_factor != 1) {
+                                continue;
+                            }
                             f(x) = cast<bool>(true);
                             ref(x) = cast<bool>(true);
                             f(x) = f(x) && rhs;
