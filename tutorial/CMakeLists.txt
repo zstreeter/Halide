@@ -13,11 +13,11 @@ function(add_tutorial source_file)
     get_filename_component(name "${source_file}" NAME_WE)
 
     add_executable("${name}" "${source_file}")
-
-    add_halide_test("${name}" GROUPS tutorial)
-
     target_link_libraries("${name}" PRIVATE Halide::Halide Halide::Tools)
     target_compile_options(${name} PRIVATE "$<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wno-unused-but-set-variable>")
+
+    add_test(NAME tutorial_${name} COMMAND ${name})
+    set_tests_properties(tutorial_${name} PROPERTIES LABELS tutorial)
 
     if (${args_WITH_IMAGE_IO})
         target_link_libraries(${name} PRIVATE Halide::ImageIO)
