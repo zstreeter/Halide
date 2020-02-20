@@ -86,6 +86,18 @@ if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
         message(STATUS "Building utils disabled")
     endif ()
 
+    option(WITH_PYTHON_BINDINGS "Build Python bindings" ON)
+    if (WITH_PYTHON_BINDINGS)
+        if (HALIDE_ENABLE_RTTI)
+            message(STATUS "Building Python bindings enabled")
+            add_subdirectory(python_bindings)
+        else ()
+            message(STATUS "Building Python bindings disabled: must compile with RTTI")
+        endif ()
+    else ()
+        message(STATUS "Building Python bindings disabled")
+    endif ()
+
     add_subdirectory(packaging)
 
     add_custom_target(distrib

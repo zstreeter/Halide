@@ -9,4 +9,4 @@ numpy
 scipy
 pillow
 imageio
-pybind11
+pybind11>=2.2
