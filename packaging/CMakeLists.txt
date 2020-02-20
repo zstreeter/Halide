@@ -13,6 +13,7 @@ set(HALIDE_INSTALL_CMAKEDIR
 # Main library exports
 ##
 
+# Define destinations for all the targets
 install(TARGETS Halide Halide_Runtime
         EXPORT Halide_Targets
 
@@ -38,6 +39,7 @@ install(TARGETS Halide_Tools Halide_ImageIO
 install(TARGETS Halide_Generator Halide_RunGenMain
         EXPORT Halide_Targets)
 
+# Create a cmake script for importing those targets for consuming libraries.
 install(EXPORT Halide_Targets
         DESTINATION ${HALIDE_INSTALL_CMAKEDIR}
         NAMESPACE Halide::

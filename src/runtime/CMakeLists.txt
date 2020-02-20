@@ -136,6 +136,10 @@ set(RUNTIME_HEADER_FILES
     HalideRuntimeQurt.h
     )
 
+# Need to create an object library for this because CMake
+# doesn't support using target_sources on a target declared
+# in a different directory ONLY IF that source was created
+# by add_custom_command, as is the case in this directory.
 add_library(Halide_initmod OBJECT)
 
 set(CXX_WARNING_FLAGS -Wall -Werror -Wno-unused-function -Wcast-qual)

@@ -406,19 +406,15 @@ else ()
     message(STATUS "Building Halide as a static library")
 endif ()
 
-add_library(Halide ${HALIDE_LIBRARY_TYPE} ${SOURCE_FILES} ${HEADER_FILES})
+add_library(Halide ${HALIDE_LIBRARY_TYPE}
+            ${SOURCE_FILES}
+            ${HEADER_FILES}
+            # Including these as sources works around the need to "install" Halide_initmod
+            $<TARGET_OBJECTS:Halide_initmod>)
 add_library(Halide::Halide ALIAS Halide)
+set_target_properties(Halide PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
-target_link_libraries(Halide PRIVATE Halide_initmod LLVM::LLVM LLVM::Config)
-
-# TODO: determine whether this is still necessary
-if (NOT MSVC AND NOT LLVM_USE_SHARED_LLVM_LIBRARY)
-    execute_process(COMMAND llvm-config --system-libs ${LLVM_COMPONENTS} OUTPUT_VARIABLE EXTRA_LIBS)
-    string(STRIP EXTRA_LIBS "${EXTRA_LIBS}")   # strip whitespace from start & end
-    string(REPLACE "\n" "" EXTRA_LIBS "${EXTRA_LIBS}")
-    string(REPLACE " " ";" EXTRA_LIBS "${EXTRA_LIBS}")  # convert into a list
-    target_link_libraries(Halide PRIVATE ${EXTRA_LIBS})
-endif ()
+target_link_libraries(Halide PRIVATE LLVM::LLVM LLVM::Config)
 
 add_dependencies(Halide HalideIncludes)
 
@@ -488,16 +484,9 @@ target_compile_options(Halide
 # Set up macro definitions for libHalide
 ##
 
-# Define Halide_SHARED or Halide_STATIC depending on library type
 target_compile_definitions(Halide PRIVATE
-                           "Halide_${HALIDE_LIBRARY_TYPE}"
-                           )
-
-# TODO: what do these do, and why are they necessary?
-target_compile_definitions(Halide PUBLIC
                            $<$<CXX_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS>
-                           $<$<CXX_COMPILER_ID:MSVC>:_SCL_SECURE_NO_WARNINGS>
-                           )
+                           $<$<CXX_COMPILER_ID:MSVC>:_SCL_SECURE_NO_WARNINGS>)
 
 option(TARGET_OPENCL "Include OpenCL-C target" ON)
 if (TARGET_OPENCL)
@@ -522,9 +511,4 @@ endif ()
 option(HALIDE_USE_CODEMODEL_LARGE "Use the Large LLVM codemodel" OFF)
 if (HALIDE_USE_CODEMODEL_LARGE)
     target_compile_definitions(Halide PRIVATE HALIDE_USE_CODEMODEL_LARGE)
-endif ()
-
-target_compile_definitions(Halide PRIVATE COMPILING_HALIDE)
-if (NOT LLVM_ENABLE_ASSERTIONS)
-    target_compile_definitions(Halide PRIVATE NDEBUG)
 endif ()

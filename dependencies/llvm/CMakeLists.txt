@@ -4,10 +4,10 @@
 
 if ("${HALIDE_REQUIRE_LLVM_VERSION}" STREQUAL "")
     # Find any version present.
-    find_package(LLVM REQUIRED CONFIG)
+    find_package(LLVM REQUIRED)
 else ()
     message(STATUS "Looking for LLVM version ${HALIDE_REQUIRE_LLVM_VERSION}")
-    find_package(LLVM "${HALIDE_REQUIRE_LLVM_VERSION}" REQUIRED CONFIG)
+    find_package(LLVM "${HALIDE_REQUIRE_LLVM_VERSION}" REQUIRED)
 endif ()
 
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
@@ -19,6 +19,29 @@ endif ()
 
 if ("${LLVM_PACKAGE_VERSION}" VERSION_GREATER 11.0)
     message(FATAL_ERROR "LLVM version must be 11.0 or older")
+endif ()
+
+##
+# Promote executable targets from LLVM
+##
+
+set_target_properties(llvm-as PROPERTIES IMPORTED_GLOBAL TRUE)
+set_target_properties(llvm-nm PROPERTIES IMPORTED_GLOBAL TRUE)
+set_target_properties(llvm-config PROPERTIES IMPORTED_GLOBAL TRUE)
+
+##
+# Create target for holding LLVM properties
+##
+
+add_library(llvm_config INTERFACE IMPORTED)
+set_target_properties(llvm_config PROPERTIES IMPORTED_GLOBAL TRUE)
+add_library(LLVM::Config ALIAS llvm_config)
+
+target_compile_definitions(llvm_config INTERFACE "LLVM_VERSION=${LLVM_VERSION_MAJOR}${LLVM_VERSION_MINOR}")
+
+option(HALIDE_ENABLE_EXCEPTIONS "Enable exceptions" ${LLVM_ENABLE_EH})
+if (HALIDE_ENABLE_EXCEPTIONS)
+    target_compile_definitions(llvm_config INTERFACE WITH_EXCEPTIONS)
 endif ()
 
 ##
@@ -47,19 +70,18 @@ check_llvm_target(AMDGPU WITH_AMDGPU)  # AMDGPU target is WIP
 # Create interface libraries for LLVM
 ##
 
-add_library(llvm INTERFACE)
+add_library(llvm INTERFACE IMPORTED)
+set_target_properties(llvm PROPERTIES IMPORTED_GLOBAL TRUE)
+add_library(LLVM::LLVM ALIAS llvm)
+
 target_include_directories(llvm INTERFACE ${LLVM_INCLUDE_DIRS})
 target_compile_definitions(llvm INTERFACE ${LLVM_DEFINITIONS})
-
-add_library(llvm_config INTERFACE)
-target_compile_definitions(llvm_config INTERFACE "LLVM_VERSION=${LLVM_VERSION_MAJOR}${LLVM_VERSION_MINOR}")
 
 ##
 # Create options that are initialized based on LLVM's config
 ##
 
-# See the output of ``llvm-config --components`` for a list of possible components
-set(LLVM_COMPONENTS mcjit;bitwriter;linker; passes)
+set(LLVM_COMPONENTS mcjit;bitwriter;linker;passes)
 
 # TODO: For targets we can link against even fewer libraries by specifying only the components we REALLY need.
 # (e.g. x86asmprinter;x86codegen rather than x86)
@@ -137,12 +159,8 @@ if (LLVM_USE_SHARED_LLVM_LIBRARY)
     set(LLVM_USE_SHARED "USE_SHARED")
 endif ()
 
-llvm_map_components_to_libnames(LLVM_COMPONENTS ${LLVM_COMPONENTS})
-target_link_libraries(llvm INTERFACE ${LLVM_COMPONENTS})
-
-if (NOT LLVM_ENABLE_ASSERTIONS)
-    target_compile_definitions(llvm INTERFACE NDEBUG)
-endif ()
+llvm_map_components_to_libnames(LLVM_LIBNAMES ${LLVM_COMPONENTS})
+target_link_libraries(llvm INTERFACE ${LLVM_LIBNAMES})
 
 option(HALIDE_ENABLE_RTTI "Enable RTTI" ${LLVM_ENABLE_RTTI})
 if (HALIDE_ENABLE_RTTI AND NOT LLVM_ENABLE_RTTI)
@@ -155,18 +173,3 @@ if (NOT LLVM_ENABLE_RTTI)
                            $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CXX_COMPILER_ID:MSVC>>>:-fno-rtti>)
 endif ()
 
-option(HALIDE_ENABLE_EXCEPTIONS "Enable exceptions" ${LLVM_ENABLE_EH})
-if (HALIDE_ENABLE_EXCEPTIONS)
-    target_compile_definitions(llvm_config INTERFACE WITH_EXCEPTIONS)
-endif ()
-
-##
-# Export aliases to global scope.
-##
-
-add_library(LLVM::LLVM ALIAS llvm)
-add_library(LLVM::Config ALIAS llvm_config)
-
-set_target_properties(llvm-as PROPERTIES IMPORTED_GLOBAL TRUE)
-set_target_properties(llvm-nm PROPERTIES IMPORTED_GLOBAL TRUE)
-set_target_properties(llvm-config PROPERTIES IMPORTED_GLOBAL TRUE)
