@@ -9,6 +9,8 @@ using std::map;
 using std::string;
 using std::vector;
 
+namespace {
+
 class UniquifyVariableNames : public IRMutator {
 
     using IRMutator::visit;
@@ -107,10 +109,65 @@ class UniquifyVariableNames : public IRMutator {
             return op;
         }
     }
+
+public:
+    UniquifyVariableNames(map<string, int> &&free_vars)
+        : vars(free_vars) {
+    }
 };
 
+class FindFreeVars : public IRVisitor {
+    Scope<> vars;
+
+    using IRVisitor::visit;
+
+    template<typename LetOrLetStmt>
+    void visit_let(const LetOrLetStmt *op) {
+        vector<ScopedBinding<>> frames;
+        decltype(op->body) body;
+        while (op) {
+            op->value.accept(this);
+            frames.emplace_back(vars, op->name);
+            body = op->body;
+            op = body.template as<LetOrLetStmt>();
+        }
+
+        body.accept(this);
+    }
+
+    void visit(const LetStmt *op) override {
+        visit_let(op);
+    }
+
+    void visit(const Let *op) override {
+        visit_let(op);
+    }
+
+    void visit(const For *op) override {
+        op->min.accept(this);
+        op->extent.accept(this);
+        {
+            ScopedBinding<> bind(vars, op->name);
+            op->body.accept(this);
+        }
+    }
+
+    void visit(const Variable *op) override {
+        if (!vars.contains(op->name)) {
+            free_vars[op->name] = 0;
+        }
+    }
+
+public:
+    map<string, int> free_vars;
+};
+
+}  // namespace
+
 Stmt uniquify_variable_names(Stmt s) {
-    UniquifyVariableNames u;
+    FindFreeVars finder;
+    s.accept(&finder);
+    UniquifyVariableNames u(std::move(finder.free_vars));
     return u.mutate(s);
 }
 
