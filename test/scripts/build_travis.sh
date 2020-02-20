@@ -34,13 +34,13 @@ if [ ${BUILD_SYSTEM} = 'CMAKE' ]; then
                  ../
 
   make ${MAKEFLAGS}
-  /usr/bin/ctest -L internal
+  /usr/bin/ctest -L internal --output-on-failure
 
   if [ ${HALIDE_SHARED_LIBRARY} = 'ON' ]; then
     # Building with static library is slower, and can run
     # over the time limit; since we just want a reality
     # check, do the full test suite only for shared.
-    /usr/bin/ctest -L travis
+    /usr/bin/ctest -L travis --output-on-failure
     make doc
   fi
 

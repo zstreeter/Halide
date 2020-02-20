@@ -1,3 +1,18 @@
+##
+# Remove the NDEBUG flag for the directory scope.
+##
+
+get_property(ENABLED_LANGUAGES GLOBAL PROPERTY ENABLED_LANGUAGES)
+foreach (L IN LISTS ENABLED_LANGUAGES)
+    string(TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE_UPPER)
+    set(VAR CMAKE_${L}_FLAGS_${CMAKE_BUILD_TYPE_UPPER})
+    string(REGEX REPLACE "(^| )[/-]D *NDEBUG($| )" " " ${VAR} "${${VAR}}")
+endforeach ()
+
+##
+# Define helper targets for defining tests
+##
+
 if (NOT TARGET Halide::Test)
     # Capture common halide test features in a single target.
     add_library(Halide_test INTERFACE)
@@ -28,6 +43,10 @@ if (NOT TARGET Halide::ExpectAbort)
     add_library(Halide::ExpectAbort ALIAS Halide_expect_abort)
 endif ()
 
+##
+# Convenience methods for defining tests.
+##
+
 # TODO: this is intended to eventually replicate all of the interesting test targets from our Make build, but not all are implemented yet:
 # TODO(srj): add test_aotcpp_generators support
 # TODO(srj): add test_valgrind variant
@@ -49,15 +68,6 @@ function(add_halide_test TARGET)
         set_tests_properties(${TARGET} PROPERTIES WILL_FAIL true)
     endif ()
 endfunction()
-
-function(halide_project name folder)
-    message(DEPRECATION "Link to Halide::Test and only enable exports if needed.")
-    add_executable("${name}" ${ARGN})
-    target_link_libraries("${name}" PRIVATE Halide::Halide ${CMAKE_DL_LIBS} Threads::Threads $<$<CXX_COMPILER_ID:MSVC>:Kernel32>)
-    set_target_properties("${name}" PROPERTIES
-                          FOLDER "${folder}"
-                          ENABLE_EXPORTS True)
-endfunction(halide_project)
 
 function(tests)
     set(options EXPECT_FAILURE)
