@@ -2306,13 +2306,15 @@ private:
         if (scope.contains(op->name + ".loop_min")) {
             min_val = scope.get(op->name + ".loop_min").min;
         } else {
-            min_val = Variable::make(Int(32), op->name + ".loop_min");
+            min_val = bounds_of_expr_in_scope(op->min, scope, func_bounds).min;
         }
 
         if (scope.contains(op->name + ".loop_max")) {
             max_val = scope.get(op->name + ".loop_max").max;
         } else {
-            max_val = Variable::make(Int(32), op->name + ".loop_max");
+            max_val = bounds_of_expr_in_scope(op->extent, scope, func_bounds).max;
+            max_val += bounds_of_expr_in_scope(op->min, scope, func_bounds).max;
+            max_val -= 1;
         }
 
         push_var(op->name);
