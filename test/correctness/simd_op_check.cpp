@@ -235,6 +235,10 @@ public:
                 check("pabsd", 2 * w, abs(i32_1));
             }
 
+            #if LLVM_VERSION >= 90
+            // Horizontal ops. Our support for them uses intrinsics
+            // from LLVM 9+.
+
             // Paradoxically, haddps is a bad way to do horizontal
             // adds down to a single scalar on most x86. A better
             // sequence (according to Peter Cordes on stackoverflow)
@@ -263,7 +267,7 @@ public:
             // possible. This only exists for u16. X86 is weird.
             check("phminposuw", 1, minimum(in_u16(RDom(0, 8) + 8 * x)));
 
-            // Max reductions can uise the same instruction by first
+            // Max reductions can use the same instruction by first
             // flipping the bits.
             check("phminposuw", 1, maximum(in_u16(RDom(0, 8) + 8 * x)));
 
@@ -277,6 +281,7 @@ public:
             check("phminposuw", 1, maximum(in_u8(RDom(0, 16) + 16 * x)));
             check("phminposuw", 1, minimum(in_i8(RDom(0, 16) + 16 * x)));
             check("phminposuw", 1, maximum(in_i8(RDom(0, 16) + 16 * x)));
+            #endif
         }
 
         // SSE 4.1

@@ -4410,6 +4410,7 @@ void CodeGen_LLVM::codegen_vector_reduce(const VectorReduce *op, const Expr &ini
         return;
     }
 
+    #if LLVM_VERSION >= 90
     if (output_lanes == 1) {
         const int input_lanes = val.type().lanes();
         const int input_bytes = input_lanes * val.type().bytes();
@@ -4501,6 +4502,7 @@ void CodeGen_LLVM::codegen_vector_reduce(const VectorReduce *op, const Expr &ini
             return;
         }
     }
+    #endif
 
     if (output_lanes == 1 &&
         factor > native_lanes &&
