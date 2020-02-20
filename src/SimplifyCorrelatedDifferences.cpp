@@ -64,6 +64,11 @@ class SimplifyCorrelatedDifferences : public IRMutator {
         // constant, not an unknown.
         do {
             result = op->body;
+            if (loop_var.empty()) {
+                frames.emplace_back(op);
+                continue;
+            }
+
             bool pure = is_pure(op->value);
             if (!pure || expr_uses_vars(op->value, monotonic)) {
                 frames.emplace_back(op, loop_var, monotonic);
@@ -93,16 +98,10 @@ class SimplifyCorrelatedDifferences : public IRMutator {
     }
 
     Expr visit(const Let *op) override {
-        if (loop_var.empty()) {
-            return IRMutator::visit(op);
-        }
         return visit_let<Let, Expr>(op);
     }
 
     Stmt visit(const LetStmt *op) override {
-        if (loop_var.empty()) {
-            return IRMutator::visit(op);
-        }
         return visit_let<LetStmt, Stmt>(op);
     }
 
