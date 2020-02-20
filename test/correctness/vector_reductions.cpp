@@ -16,8 +16,6 @@ int main(int argc, char **argv) {
                         continue;
                     }
 
-                    printf("%d %d %d\n", dst_lanes, reduce_factor, widen_factor);
-
                     for (int op = 0; op < 7; op++) {
                         if (dst_type == Float(16) && reduce_factor > 2) {
                             // Reductions of float16s is really not very associative
