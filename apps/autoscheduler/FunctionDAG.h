@@ -348,6 +348,11 @@ struct FunctionDAG {
     // An edge is a producer-consumer relationship
     struct Edge;
 
+    struct SymbolicInterval {
+        Halide::Var min;
+        Halide::Var max;
+    };
+
     // A Node represents a single Func
     struct Node {
         // A pointer back to the owning DAG
@@ -361,7 +366,7 @@ struct FunctionDAG {
 
         // The min/max variables used to denote a symbolic region of
         // this Func. Used in the cost above, and in the Edges below.
-        vector<Interval> region_required;
+        vector<SymbolicInterval> region_required;
 
         // A concrete region required from a bounds estimate. Only
         // defined for outputs.
@@ -433,10 +438,6 @@ struct FunctionDAG {
             // compute. Corresponds to the natural width for the
             // narrowest type used.
             int vector_size;
-
-            // The vector size used for storing outputs. Corresponds
-            // to the natural width for the output type.
-            int output_vector_size;
 
             // The featurization of the compute done
             PipelineFeatures features;
@@ -538,11 +539,6 @@ struct FunctionDAG {
 
     vector<Node> nodes;
     vector<Edge> edges;
-
-    // We're going to be querying this DAG a lot while searching for
-    // an optimal schedule, so we'll also create a variety of
-    // auxiliary data structures.
-    map<Function, Node *, Function::Compare> node_map;
 
     // Create the function DAG, and do all the dependency and cost
     // analysis. This is done once up-front before the tree search.
