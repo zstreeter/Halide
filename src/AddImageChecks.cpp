@@ -4,6 +4,7 @@
 #include "Simplify.h"
 #include "Substitute.h"
 #include "Target.h"
+#include "UniquifyVariableNames.h"
 
 namespace Halide {
 namespace Internal {
@@ -175,6 +176,10 @@ Stmt add_image_checks_inner(Stmt s,
 
     Scope<Interval> empty_scope;
     Stmt sub_stmt = TrimStmtToPartsThatAccessBuffers(bufs).mutate(s);
+    // It's also worth simplifying as much as possible to cancel
+    // anything that can be cancelled.
+    sub_stmt = uniquify_variable_names(sub_stmt);
+    sub_stmt = simplify(sub_stmt, false);
     map<string, Box> boxes = boxes_touched(sub_stmt, empty_scope, fb);
 
     // Now iterate through all the buffers, creating a list of lets
