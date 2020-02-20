@@ -235,7 +235,7 @@ public:
                 check("pabsd", 2 * w, abs(i32_1));
             }
 
-            #if LLVM_VERSION >= 90
+#if LLVM_VERSION >= 90
             // Horizontal ops. Our support for them uses intrinsics
             // from LLVM 9+.
 
@@ -281,7 +281,7 @@ public:
             check("phminposuw", 1, maximum(in_u8(RDom(0, 16) + 16 * x)));
             check("phminposuw", 1, minimum(in_i8(RDom(0, 16) + 16 * x)));
             check("phminposuw", 1, maximum(in_i8(RDom(0, 16) + 16 * x)));
-            #endif
+#endif
         }
 
         // SSE 4.1
