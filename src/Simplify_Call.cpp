@@ -503,7 +503,7 @@ Expr Simplify::visit(const Call *op, ExprInfo *bounds) {
         if (arg.same_as(op->args[0])) {
             return op;
         } else {
-            return Call::make(op->type, op->name, {arg}, Call::Intrinsic);
+            return Call::make(op->type, op->name, {arg}, op->call_type);
         }
     } else if (op->call_type == Call::PureExtern) {
         // TODO: This could probably be simplified into a single map-lookup
