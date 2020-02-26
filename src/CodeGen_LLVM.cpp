@@ -2013,7 +2013,7 @@ void CodeGen_LLVM::add_tbaa_metadata(llvm::Instruction *inst, string buffer, Exp
                 // that contains this ramp.
                 int64_t stride = *pstride;
                 base = *pbase;
-                assert(base >= 0);
+                internal_assert(base >= 0);
                 width = next_power_of_two(ramp->lanes * stride);
 
                 while (base % width) {
@@ -2975,7 +2975,7 @@ void CodeGen_LLVM::visit(const Call *op) {
         }
 
     } else if (op->is_intrinsic(Call::stringify)) {
-        assert(!op->args.empty());
+        internal_assert(!op->args.empty());
 
         if (op->type.is_vector()) {
             scalarize(op);

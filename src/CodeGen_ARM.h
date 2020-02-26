@@ -30,6 +30,8 @@ protected:
     void visit(const Store *) override;
     void visit(const Load *) override;
     void visit(const Call *) override;
+    void visit(const LT *) override;
+    void visit(const LE *) override;
     void codegen_vector_reduce(const VectorReduce *, const Expr &) override;
     // @}
 
