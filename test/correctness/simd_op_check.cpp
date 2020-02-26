@@ -187,7 +187,7 @@ public:
 
         // SSE 2
 
-        for (int w = 2; w <= 4; w++) {
+        for (int w : {2, 4}) {
             check("addpd", w, f64_1 + f64_2);
             check("subpd", w, f64_1 - f64_2);
             check("mulpd", w, f64_1 * f64_2);

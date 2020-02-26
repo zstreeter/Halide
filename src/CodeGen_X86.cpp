@@ -107,6 +107,32 @@ void CodeGen_X86::visit(const Sub *op) {
     }
 }
 
+void CodeGen_X86::visit(const Mul *op) {
+
+#if LLVM_VERSION < 110
+    // Widening integer multiply of non-power-of-two vector sizes is
+    // broken in older llvms for older x86:
+    // https://bugs.llvm.org/show_bug.cgi?id=44976
+    const int lanes = op->type.lanes();
+    if (!target.has_feature(Target::SSE41) &&
+        (lanes & (lanes - 1)) &&
+        !op->type.is_float()) {
+        // Any fancy shuffles to pad or slice into smaller vectors
+        // just gets undone by LLVM and retriggers the bug. Just
+        // scalarize.
+        vector<Expr> result;
+        for (int i = 0; i < lanes; i++) {
+            result.emplace_back(Shuffle::make_extract_element(op->a, i) *
+                                Shuffle::make_extract_element(op->b, i));
+        }
+        codegen(Shuffle::make_concat(result));
+        return;
+    }
+#endif
+
+    return CodeGen_Posix::visit(op);
+}
+
 void CodeGen_X86::visit(const GT *op) {
     Type t = op->a.type();
 
