@@ -196,6 +196,24 @@ Expr Simplify::visit(const LT *op, ExprInfo *bounds) {
               rewrite(c1 < min(y, c0), fold(c1 < c0) && c1 < y) ||
               rewrite(c1 < max(y, c0), fold(c1 < c0) || c1 < y) ||
 
+              // Cases where we can remove a min on one side because
+              // one term dominates another. These rules were
+              // synthesized then extended by hand.
+              rewrite(min(z, y) < min(x, y), z < min(x, y)) ||
+              rewrite(min(z, y) < min(y, x), z < min(y, x)) ||
+              rewrite(min(z, y) < min(x, y + c0), min(z, y) < x, c0 > 0) ||
+              rewrite(min(z, y) < min(y + c0, x), min(z, y) < x, c0 > 0) ||
+              rewrite(min(z, y + c0) < min(x, y), min(z, y + c0) < x, c0 < 0) ||
+              rewrite(min(z, y + c0) < min(y, x), min(z, y + c0) < x, c0 < 0) ||
+
+              // Equivalents with max
+              rewrite(max(z, y) < max(x, y), max(z, y) < x) ||
+              rewrite(max(z, y) < max(y, x), max(z, y) < x) ||
+              rewrite(max(z, y) < max(x, y + c0), max(z, y) < x, c0 < 0) ||
+              rewrite(max(z, y) < max(y + c0, x), max(z, y) < x, c0 < 0) ||
+              rewrite(max(z, y + c0) < max(x, y), max(z, y + c0) < x, c0 > 0) ||
+              rewrite(max(z, y + c0) < max(y, x), max(z, y + c0) < x, c0 > 0) ||
+
               // Comparisons with selects:
               // x < select(c, t, f) == c && (x < t) || !c && (x < f)
               // This is profitable when x < t or x < f is statically provable
