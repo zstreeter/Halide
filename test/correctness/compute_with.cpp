@@ -1,8 +1,8 @@
 #include "Halide.h"
 #include "check_call_graphs.h"
 
-#include <map>
 #include <cstdio>
+#include <map>
 
 namespace {
 

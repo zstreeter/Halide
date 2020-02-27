@@ -450,7 +450,9 @@ target_compile_options(Halide
                        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wignored-qualifiers>
 
                        $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang,AppleClang>:-Woverloaded-virtual>
-                       $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang,AppleClang>:-Wsuggest-override>
+                       $<$<COMPILE_LANG_AND_ID:CXX,GNU>:-Wsuggest-override>
+                       $<$<COMPILE_LANG_AND_ID:CXX,Clang,AppleClang>:-Winconsistent-missing-override>
+                       $<$<COMPILE_LANG_AND_ID:CXX,Clang,AppleClang>:-Winconsistent-missing-destructor-override>
 
                        $<$<CXX_COMPILER_ID:MSVC>:/W3>
                        $<$<CXX_COMPILER_ID:MSVC>:/wd4018>  # disable "signed/unsigned mismatch"

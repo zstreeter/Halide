@@ -1,8 +1,8 @@
 #include "Halide.h"
 #include "check_call_graphs.h"
 
-#include <functional>
 #include <cstdio>
+#include <functional>
 
 namespace {
 

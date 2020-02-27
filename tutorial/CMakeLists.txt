@@ -14,7 +14,7 @@ function(add_tutorial source_file)
 
     add_executable("${name}" "${source_file}")
     target_link_libraries("${name}" PRIVATE Halide::Halide Halide::Tools)
-    target_compile_options(${name} PRIVATE "$<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wno-unused-but-set-variable>")
+    target_compile_options(${name} PRIVATE "$<$<CXX_COMPILER_ID:GNU>:-Wno-unused-but-set-variable>")
 
     add_test(NAME tutorial_${name} COMMAND ${name})
     set_tests_properties(tutorial_${name} PROPERTIES LABELS tutorial)
