@@ -2283,3 +2283,48 @@ $(BIN_DIR)/HalideTraceDump: $(ROOT_DIR)/util/HalideTraceDump.cpp $(ROOT_DIR)/uti
 format:
 	find "${ROOT_DIR}/apps" "${ROOT_DIR}/src" "${ROOT_DIR}/tools" "${ROOT_DIR}/test" "${ROOT_DIR}/util" "${ROOT_DIR}/python_bindings" -name *.cpp -o -name *.h -o -name *.c | xargs ${CLANG}-format -i -style=file
 
+# Build the documentation. Be sure to keep this synchronized with doc/CMakeLists.txt
+# if you choose to edit it.
+
+# Copy ROOT_DIR to keep the following Doxyfile closer to CMake
+Halide_SOURCE_DIR=${ROOT_DIR}
+
+define Doxyfile
+# Keep the following in sync with doc/CMakeLists.txt
+ALPHABETICAL_INDEX     = NO
+BUILTIN_STL_SUPPORT    = YES
+CASE_SENSE_NAMES       = NO
+CLASS_DIAGRAMS         = NO
+DISTRIBUTE_GROUP_DOC   = YES
+EXAMPLE_PATH           = "${Halide_SOURCE_DIR}/tutorial"
+EXCLUDE                = bin
+EXTRACT_ALL            = YES
+EXTRACT_LOCAL_CLASSES  = NO
+FILE_PATTERNS          = *.h
+GENERATE_TREEVIEW      = YES
+HIDE_FRIEND_COMPOUNDS  = YES
+HIDE_IN_BODY_DOCS      = YES
+HIDE_UNDOC_CLASSES     = YES
+HIDE_UNDOC_MEMBERS     = YES
+JAVADOC_AUTOBRIEF      = YES
+QT_AUTOBRIEF           = YES
+QUIET                  = YES
+REFERENCED_BY_RELATION = YES
+REFERENCES_RELATION    = YES
+SORT_BY_SCOPE_NAME     = YES
+SORT_MEMBER_DOCS       = NO
+SOURCE_BROWSER         = YES
+STRIP_CODE_COMMENTS    = NO
+
+# Makefile-specific options
+INPUT                  = "${Halide_SOURCE_DIR}/src" "${Halide_SOURCE_DIR}/test"
+OUTPUT_DIRECTORY       = doc
+endef
+
+# Make the above Doxyfile variable available to the doc target.
+export Doxyfile
+
+.PHONY: doc
+doc:
+	echo "$$Doxyfile" > Doxyfile
+	doxygen
