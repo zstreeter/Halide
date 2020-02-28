@@ -20,6 +20,7 @@ if [ ${BUILD_SYSTEM} = 'CMAKE' ]; then
   # an older clang/llvm version present
   /usr/bin/cmake -DHALIDE_REQUIRE_LLVM_VERSION="${LLVM_VERSION}" \
                  -DLLVM_DIR="/usr/local/llvm/lib/cmake/llvm/" \
+                 -DClang_DIR="/usr/local/llvm/lib/cmake/clang/" \
                  -DHALIDE_SHARED_LIBRARY="${HALIDE_SHARED_LIBRARY}" \
                  -DWITH_APPS=OFF \
                  -DWITH_TESTS=ON \
