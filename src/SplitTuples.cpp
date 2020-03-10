@@ -50,7 +50,7 @@ public:
     bool result;
 };
 
-inline bool uses_extern_image(Stmt s) {
+inline bool uses_extern_image(const Stmt &s) {
     UsesExternImage uses;
     s.accept(&uses);
     return uses.result;
@@ -203,7 +203,7 @@ public:
 
 }  // namespace
 
-Stmt split_tuples(Stmt s, const map<string, Function> &env) {
+Stmt split_tuples(const Stmt &s, const map<string, Function> &env) {
     return SplitTuples(env).mutate(s);
 }
 

@@ -9,7 +9,7 @@ using std::map;
 using std::string;
 using std::vector;
 
-vector<ApplySplitResult> apply_split(const Split &split, bool is_update, string prefix,
+vector<ApplySplitResult> apply_split(const Split &split, bool is_update, const string &prefix,
                                      map<string, Expr> &dim_extent_alignment) {
     vector<ApplySplitResult> result;
 
@@ -96,7 +96,7 @@ vector<ApplySplitResult> apply_split(const Split &split, bool is_update, string 
         Expr outer_min = Variable::make(Int(32), prefix + split.outer + ".loop_min");
         Expr inner_extent = Variable::make(Int(32), prefix + split.inner + ".loop_extent");
 
-        Expr factor = inner_extent;
+        const Expr &factor = inner_extent;
         Expr inner = fused % factor + inner_min;
         Expr outer = fused / factor + outer_min;
 
@@ -122,7 +122,7 @@ vector<ApplySplitResult> apply_split(const Split &split, bool is_update, string 
     return result;
 }
 
-vector<std::pair<string, Expr>> compute_loop_bounds_after_split(const Split &split, string prefix) {
+vector<std::pair<string, Expr>> compute_loop_bounds_after_split(const Split &split, const string &prefix) {
     // Define the bounds on the split dimensions using the bounds
     // on the function args. If it is a purify, we should use the bounds
     // from the dims instead.

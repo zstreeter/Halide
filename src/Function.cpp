@@ -2,6 +2,7 @@
 #include <memory>
 #include <set>
 #include <stdlib.h>
+#include <utility>
 
 #include "CSE.h"
 #include "Function.h"
@@ -324,7 +325,7 @@ ExternFuncArgument deep_copy_extern_func_argument_helper(
     return copy;
 }
 
-void Function::deep_copy(FunctionPtr copy, DeepCopyMap &copied_map) const {
+void Function::deep_copy(const FunctionPtr &copy, DeepCopyMap &copied_map) const {
     internal_assert(copy.defined() && contents.defined())
         << "Cannot deep-copy undefined Function\n";
 
@@ -372,9 +373,9 @@ void Function::deep_copy(FunctionPtr copy, DeepCopyMap &copied_map) const {
     }
 }
 
-void Function::deep_copy(string name, FunctionPtr copy, DeepCopyMap &copied_map) const {
+void Function::deep_copy(string name, const FunctionPtr &copy, DeepCopyMap &copied_map) const {
     deep_copy(copy, copied_map);
-    copy->name = name;
+    copy->name = std::move(name);
 }
 
 void Function::define(const vector<string> &args, vector<Expr> values) {
@@ -1001,7 +1002,7 @@ namespace {
 class SubstituteCalls : public IRMutator {
     using IRMutator::visit;
 
-    map<FunctionPtr, FunctionPtr> substitutions;
+    const map<FunctionPtr, FunctionPtr> &substitutions;
 
     Expr visit(const Call *c) override {
         Expr expr = IRMutator::visit(c);
@@ -1011,8 +1012,10 @@ class SubstituteCalls : public IRMutator {
         if ((c->call_type == Call::Halide) &&
             c->func.defined() &&
             substitutions.count(c->func)) {
-            FunctionPtr subs = substitutions[c->func];
-            internal_assert(subs.defined()) << "Function not in environment: " << subs->name << "\n";
+            auto it = substitutions.find(c->func);
+            internal_assert(it != substitutions.end())
+                << "Function not in environment: " << c->func->name << "\n";
+            FunctionPtr subs = it->second;
             debug(4) << "...Replace call to Func \"" << c->name << "\" with "
                      << "\"" << subs->name << "\"\n";
             expr = Call::make(c->type, subs->name, c->args, c->call_type,
