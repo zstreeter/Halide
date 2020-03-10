@@ -43,7 +43,7 @@ public:
     }
 };
 
-Stmt lower_unsafe_promises(Stmt s, const Target &t) {
+Stmt lower_unsafe_promises(const Stmt &s, const Target &t) {
     return LowerUnsafePromises(t.has_feature(Target::CheckUnsafePromises)).mutate(s);
 }
 

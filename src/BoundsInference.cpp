@@ -21,7 +21,7 @@ using std::vector;
 
 namespace {
 
-bool var_name_match(string candidate, string var) {
+bool var_name_match(const string &candidate, const string &var) {
     internal_assert(var.find('.') == string::npos)
         << "var_name_match expects unqualified names for the second argument. "
         << "Name passed: " << var << "\n";
@@ -54,7 +54,7 @@ public:
     }
 };
 
-bool depends_on_bounds_inference(Expr e) {
+bool depends_on_bounds_inference(const Expr &e) {
     DependsOnBoundsInference d;
     e.accept(&d);
     return d.result;
@@ -108,7 +108,7 @@ private:
     }
 };
 
-Interval bounds_of_inner_var(string var, Stmt s) {
+Interval bounds_of_inner_var(const string &var, const Stmt &s) {
     BoundsOfInnerVar b(var);
     s.accept(&b);
     return b.result;
@@ -132,7 +132,7 @@ size_t find_fused_group_index(const Function &producing_func,
 bool is_fused_with_others(const vector<vector<Function>> &fused_groups,
                           const vector<set<FusedPair>> &fused_pairs_in_groups,
                           const Function &producing_func, int producing_stage_index,
-                          string consumer_name, int consumer_stage,
+                          const string &consumer_name, int consumer_stage,
                           string var) {
     if (producing_func.has_extern_definition()) {
         return false;
@@ -370,14 +370,14 @@ public:
 
         // Wrap a statement in let stmts defining the box
         Stmt define_bounds(Stmt s,
-                           Function producing_func,
-                           string producing_stage_index,
+                           const Function &producing_func,
+                           const string &producing_stage_index,
                            int producing_stage_index_index,
-                           string loop_level,
+                           const string &loop_level,
                            const vector<vector<Function>> &fused_groups,
                            const vector<set<FusedPair>> &fused_pairs_in_groups,
                            const set<string> &in_pipeline,
-                           const set<string> inner_productions,
+                           const set<string> &inner_productions,
                            const Target &target) {
 
             // Merge all the relevant boxes.
@@ -388,7 +388,7 @@ public:
             size_t last_dot = loop_level.rfind('.');
             string var = loop_level.substr(last_dot + 1);
 
-            for (const pair<pair<string, int>, Box> &i : bounds) {
+            for (const pair<const pair<string, int>, Box> &i : bounds) {
                 string func_name = i.first.first;
                 int func_stage_index = i.first.second;
                 string stage_name = func_name + ".s" + std::to_string(func_stage_index);
@@ -657,7 +657,7 @@ public:
                 BufferBuilder builder;
                 builder.type = func.output_types()[j];
                 builder.dimensions = func.dimensions();
-                for (const string arg : func.args()) {
+                for (const string &arg : func.args()) {
                     string prefix = func.name() + ".s" + std::to_string(stage) + "." + arg;
                     Expr min = Variable::make(Int(32), prefix + ".min");
                     Expr max = Variable::make(Int(32), prefix + ".max");
@@ -735,7 +735,7 @@ public:
         // We need to take into account specializations which may refer to
         // different reduction variables as well.
         void populate_scope(Scope<Interval> &result) {
-            for (const string farg : func.args()) {
+            for (const string &farg : func.args()) {
                 string arg = name + ".s" + std::to_string(stage) + "." + farg;
                 result.push(farg,
                             Interval(Variable::make(Int(32), arg + ".min"),
@@ -1052,7 +1052,7 @@ public:
                 }
             }
 
-            if (fused_with_f.size() == 0) {
+            if (fused_with_f.empty()) {
                 boxes_for_fused_group[stage_name] = box_provided(body, stages[producing].name, empty_scope, func_bounds);
                 internal_assert((int)boxes_for_fused_group[stage_name].size() == f.dimensions());
             } else {
@@ -1096,7 +1096,7 @@ public:
             // Finally, define the production bounds for the thing
             // we're producing.
             if (producing >= 0 && !inner_productions.empty()) {
-                const vector<string> f_args = f.args();
+                const vector<string> &f_args = f.args();
                 for (const auto &b : boxes_for_fused_group) {
                     const auto &box = b.second;
                     for (size_t i = 0; i < box.size(); i++) {

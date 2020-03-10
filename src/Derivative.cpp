@@ -351,6 +351,10 @@ void ReverseAccumulationVisitor::propagate_adjoints(
 
             // Traverse the expressions in reverse order
             for (auto it = expr_list.rbegin(); it != expr_list.rend(); it++) {
+                if (it->type().is_handle()) {
+                    // Ignore pointer types
+                    continue;
+                }
                 it->accept(this);
             }
 
@@ -700,6 +704,10 @@ void ReverseAccumulationVisitor::propagate_adjoints(
 
                 // Traverse the expressions in reverse order
                 for (auto it = expr_list.rbegin(); it != expr_list.rend(); it++) {
+                    if (it->type().is_handle()) {
+                        // Ignore pointer types
+                        continue;
+                    }
                     // Propagate adjoints
                     it->accept(this);
                 }
@@ -739,6 +747,10 @@ void ReverseAccumulationVisitor::propagate_adjoints(
                 int count = 0;
                 // Traverse the expressions in reverse order
                 for (auto it = expr_list.rbegin(); it != expr_list.rend(); it++) {
+                    if (it->type().is_handle()) {
+                        // Ignore pointer types
+                        continue;
+                    }
                     // Propagate adjoints
                     it->accept(this);
                     count++;
@@ -757,7 +769,7 @@ void ReverseAccumulationVisitor::accumulate(const Expr &stub, Expr adjoint) {
     // select(c, x, 0) / y -> select(c, x / y, 0)
     if (adjoint.as<Mul>() != nullptr) {
         const Mul *mul_op = adjoint.as<Mul>();
-        auto mul_select_with_zero = [&](Expr sel, Expr other) {
+        auto mul_select_with_zero = [&](const Expr &sel, const Expr &other) {
             const Select *sel_op = sel.as<Select>();
             if (is_zero(sel_op->true_value)) {
                 return select(sel_op->condition,
@@ -777,7 +789,7 @@ void ReverseAccumulationVisitor::accumulate(const Expr &stub, Expr adjoint) {
     }
     if (adjoint.as<Div>() != nullptr) {
         const Div *div_op = adjoint.as<Div>();
-        auto div_select_with_zero = [&](Expr sel, Expr other) {
+        auto div_select_with_zero = [&](const Expr &sel, const Expr &other) {
             const Select *sel_op = sel.as<Select>();
             if (is_zero(sel_op->true_value)) {
                 return select(sel_op->condition,
@@ -1136,7 +1148,9 @@ void ReverseAccumulationVisitor::visit(const Call *op) {
             accumulate(op->args[0],
                        neg_half * adjoint * inv_sqrt_x * inv_sqrt_x * inv_sqrt_x);
         } else if (op->name == "halide_print") {
-            accumulate(op->args[0], make_zero(op->type));
+            for (const auto &arg : op->args) {
+                accumulate(arg, make_zero(op->type));
+            }
         } else {
             internal_error << "The derivative of " << op->name << " is not implemented.";
         }
@@ -1156,7 +1170,7 @@ void ReverseAccumulationVisitor::visit(const Call *op) {
         } else if (op->is_intrinsic(Call::likely)) {
             accumulate(op->args[0], adjoint);
         } else if (op->is_intrinsic(Call::return_second)) {
-            // accumulate(op->args[0], make_const(op->type, 0.0));
+            accumulate(op->args[0], make_const(op->type, 0.0));
             accumulate(op->args[1], adjoint);
         } else if (op->is_intrinsic(Call::undef)) {
             // do nothing

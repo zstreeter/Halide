@@ -1,4 +1,5 @@
 #include <iostream>
+#include <utility>
 
 #include "Bounds.h"
 #include "CSE.h"
@@ -31,7 +32,7 @@ using std::string;
 using std::vector;
 
 namespace {
-int static_sign(Expr x) {
+int static_sign(const Expr &x) {
     if (is_positive_const(x)) {
         return 1;
     } else if (is_negative_const(x)) {
@@ -144,7 +145,7 @@ private:
 #endif
 
     // Compute the intrinsic bounds of a function.
-    void bounds_of_func(string name, int value_index, Type t) {
+    void bounds_of_func(const string &name, int value_index, Type t) {
         // if we can't get a good bound from the function, fall back to the bounds of the type.
         bounds_of_type(t);
 
@@ -791,7 +792,7 @@ private:
         }
     }
 
-    Expr make_not(Expr e) {
+    Expr make_not(const Expr &e) {
         if (is_one(e)) return make_zero(e.type());
         if (is_zero(e)) return make_one(e.type());
         return !e;
@@ -940,7 +941,7 @@ private:
         //
         // TODO: are any other intrinsics worth including here as well?
         if (op->is_intrinsic(Call::strict_float)) {
-            assert(op->args.size() == 1);
+            internal_assert(op->args.size() == 1);
             op->args[0].accept(this);
             return;
         }
@@ -1035,18 +1036,18 @@ private:
             full_clamp.accept(this);
         } else if (op->is_intrinsic(Call::likely) ||
                    op->is_intrinsic(Call::likely_if_innermost)) {
-            assert(op->args.size() == 1);
+            internal_assert(op->args.size() == 1);
             op->args[0].accept(this);
         } else if (op->is_intrinsic(Call::return_second)) {
-            assert(op->args.size() == 2);
+            internal_assert(op->args.size() == 2);
             op->args[1].accept(this);
         } else if (op->is_intrinsic(Call::if_then_else)) {
-            assert(op->args.size() == 3);
+            internal_assert(op->args.size() == 3);
             // Probably more conservative than necessary
             Expr equivalent_select = Select::make(op->args[0], op->args[1], op->args[2]);
             equivalent_select.accept(this);
         } else if (op->is_intrinsic(Call::require)) {
-            assert(op->args.size() == 3);
+            internal_assert(op->args.size() == 3);
             op->args[1].accept(this);
         } else if (op->is_intrinsic(Call::shift_left) ||
                    op->is_intrinsic(Call::shift_right) ||
@@ -1377,7 +1378,7 @@ private:
     }
 };
 
-Interval bounds_of_expr_in_scope(Expr expr, const Scope<Interval> &scope, const FuncValueBounds &fb, bool const_bound) {
+Interval bounds_of_expr_in_scope(const Expr &expr, const Scope<Interval> &scope, const FuncValueBounds &fb, bool const_bound) {
     //debug(3) << "computing bounds_of_expr_in_scope " << expr << "\n";
     Bounds b(&scope, fb, const_bound);
     expr.accept(&b);
@@ -1682,7 +1683,7 @@ class BoxesTouched : public IRGraphVisitor {
 
 public:
     BoxesTouched(bool calls, bool provides, string fn, const Scope<Interval> *s, const FuncValueBounds &fb)
-        : func(fn), consider_calls(calls), consider_provides(provides), func_bounds(fb) {
+        : func(std::move(fn)), consider_calls(calls), consider_provides(provides), func_bounds(fb) {
         scope.set_containing_scope(s);
     }
 
@@ -1725,7 +1726,7 @@ private:
 
     using IRGraphVisitor::visit;
 
-    bool box_from_extended_crop(Expr e, Box &b) {
+    bool box_from_extended_crop(const Expr &e, Box &b) {
         const Call *call_expr = e.as<Call>();
         if (call_expr != nullptr) {
             if (call_expr->name == Call::buffer_crop) {
@@ -1769,7 +1770,7 @@ private:
     void visit(const Call *op) override {
         if (consider_calls) {
             if (op->is_intrinsic(Call::if_then_else)) {
-                assert(op->args.size() == 3);
+                internal_assert(op->args.size() == 3);
                 // We wrap 'then_case' and 'else_case' inside 'dummy' call since IfThenElse
                 // only takes Stmts as arguments.
                 Stmt then_case = Evaluate::make(op->args[1]);
@@ -1849,7 +1850,7 @@ private:
     // explosion. Here we manage this by only substituting in
     // reasonably-sized expressions. We determine the size by
     // counting the number of var nodes.
-    bool is_small_enough_to_substitute(Expr e) {
+    bool is_small_enough_to_substitute(const Expr &e) {
         CountVars c;
         e.accept(&c);
         return c.count < 10;
@@ -2104,7 +2105,7 @@ private:
         scope.pop(name);
     }
 
-    vector<const Variable *> find_free_vars(Expr e) {
+    vector<const Variable *> find_free_vars(const Expr &e) {
         class FindFreeVars : public IRVisitor {
             using IRVisitor::visit;
             void visit(const Variable *op) override {
@@ -2356,8 +2357,8 @@ private:
     }
 };
 
-map<string, Box> boxes_touched(Expr e, Stmt s, bool consider_calls, bool consider_provides,
-                               string fn, const Scope<Interval> &scope, const FuncValueBounds &fb) {
+map<string, Box> boxes_touched(const Expr &e, Stmt s, bool consider_calls, bool consider_provides,
+                               const string &fn, const Scope<Interval> &scope, const FuncValueBounds &fb) {
     if (!fn.empty() && s.defined()) {
         // Filter things down to the relevant sub-Stmts, so we don't spend a
         // long time reasoning about lets and ifs that don't surround an
@@ -2470,59 +2471,59 @@ map<string, Box> boxes_touched(Expr e, Stmt s, bool consider_calls, bool conside
     return calls.boxes;
 }
 
-Box box_touched(Expr e, Stmt s, bool consider_calls, bool consider_provides,
-                string fn, const Scope<Interval> &scope, const FuncValueBounds &fb) {
-    map<string, Box> boxes = boxes_touched(e, s, consider_calls, consider_provides, fn, scope, fb);
+Box box_touched(const Expr &e, Stmt s, bool consider_calls, bool consider_provides,
+                const string &fn, const Scope<Interval> &scope, const FuncValueBounds &fb) {
+    map<string, Box> boxes = boxes_touched(e, std::move(s), consider_calls, consider_provides, fn, scope, fb);
     internal_assert(boxes.size() <= 1);
     return boxes[fn];
 }
 
-map<string, Box> boxes_required(Expr e, const Scope<Interval> &scope, const FuncValueBounds &fb) {
+map<string, Box> boxes_required(const Expr &e, const Scope<Interval> &scope, const FuncValueBounds &fb) {
     return boxes_touched(e, Stmt(), true, false, "", scope, fb);
 }
 
-Box box_required(Expr e, string fn, const Scope<Interval> &scope, const FuncValueBounds &fb) {
+Box box_required(const Expr &e, const string &fn, const Scope<Interval> &scope, const FuncValueBounds &fb) {
     return box_touched(e, Stmt(), true, false, fn, scope, fb);
 }
 
 map<string, Box> boxes_required(Stmt s, const Scope<Interval> &scope, const FuncValueBounds &fb) {
-    return boxes_touched(Expr(), s, true, false, "", scope, fb);
+    return boxes_touched(Expr(), std::move(s), true, false, "", scope, fb);
 }
 
-Box box_required(Stmt s, string fn, const Scope<Interval> &scope, const FuncValueBounds &fb) {
-    return box_touched(Expr(), s, true, false, fn, scope, fb);
+Box box_required(Stmt s, const string &fn, const Scope<Interval> &scope, const FuncValueBounds &fb) {
+    return box_touched(Expr(), std::move(s), true, false, fn, scope, fb);
 }
 
-map<string, Box> boxes_provided(Expr e, const Scope<Interval> &scope, const FuncValueBounds &fb) {
+map<string, Box> boxes_provided(const Expr &e, const Scope<Interval> &scope, const FuncValueBounds &fb) {
     return boxes_touched(e, Stmt(), false, true, "", scope, fb);
 }
 
-Box box_provided(Expr e, string fn, const Scope<Interval> &scope, const FuncValueBounds &fb) {
+Box box_provided(const Expr &e, const string &fn, const Scope<Interval> &scope, const FuncValueBounds &fb) {
     return box_touched(e, Stmt(), false, true, fn, scope, fb);
 }
 
 map<string, Box> boxes_provided(Stmt s, const Scope<Interval> &scope, const FuncValueBounds &fb) {
-    return boxes_touched(Expr(), s, false, true, "", scope, fb);
+    return boxes_touched(Expr(), std::move(s), false, true, "", scope, fb);
 }
 
-Box box_provided(Stmt s, string fn, const Scope<Interval> &scope, const FuncValueBounds &fb) {
-    return box_touched(Expr(), s, false, true, fn, scope, fb);
+Box box_provided(Stmt s, const string &fn, const Scope<Interval> &scope, const FuncValueBounds &fb) {
+    return box_touched(Expr(), std::move(s), false, true, fn, scope, fb);
 }
 
-map<string, Box> boxes_touched(Expr e, const Scope<Interval> &scope, const FuncValueBounds &fb) {
+map<string, Box> boxes_touched(const Expr &e, const Scope<Interval> &scope, const FuncValueBounds &fb) {
     return boxes_touched(e, Stmt(), true, true, "", scope, fb);
 }
 
-Box box_touched(Expr e, string fn, const Scope<Interval> &scope, const FuncValueBounds &fb) {
+Box box_touched(const Expr &e, const string &fn, const Scope<Interval> &scope, const FuncValueBounds &fb) {
     return box_touched(e, Stmt(), true, true, fn, scope, fb);
 }
 
 map<string, Box> boxes_touched(Stmt s, const Scope<Interval> &scope, const FuncValueBounds &fb) {
-    return boxes_touched(Expr(), s, true, true, "", scope, fb);
+    return boxes_touched(Expr(), std::move(s), true, true, "", scope, fb);
 }
 
-Box box_touched(Stmt s, string fn, const Scope<Interval> &scope, const FuncValueBounds &fb) {
-    return box_touched(Expr(), s, true, true, fn, scope, fb);
+Box box_touched(Stmt s, const string &fn, const Scope<Interval> &scope, const FuncValueBounds &fb) {
+    return box_touched(Expr(), std::move(s), true, true, fn, scope, fb);
 }
 
 // Compute interval of all possible function's values (default + specialized values)
@@ -2597,7 +2598,7 @@ FuncValueBounds compute_function_value_bounds(const vector<string> &order,
 
 namespace {
 
-void check(const Scope<Interval> &scope, Expr e, Expr correct_min, Expr correct_max) {
+void check(const Scope<Interval> &scope, const Expr &e, const Expr &correct_min, const Expr &correct_max) {
     FuncValueBounds fb;
     Interval result = bounds_of_expr_in_scope(e, scope, fb);
     result.min = simplify(result.min);
@@ -2614,7 +2615,7 @@ void check(const Scope<Interval> &scope, Expr e, Expr correct_min, Expr correct_
     }
 }
 
-void check_constant_bound(const Scope<Interval> &scope, Expr e, Expr correct_min, Expr correct_max) {
+void check_constant_bound(const Scope<Interval> &scope, const Expr &e, const Expr &correct_min, const Expr &correct_max) {
     FuncValueBounds fb;
     Interval result = bounds_of_expr_in_scope(e, scope, fb, true);
     result.min = simplify(result.min);
@@ -2631,7 +2632,7 @@ void check_constant_bound(const Scope<Interval> &scope, Expr e, Expr correct_min
     }
 }
 
-void check_constant_bound(Expr e, Expr correct_min, Expr correct_max) {
+void check_constant_bound(const Expr &e, const Expr &correct_min, const Expr &correct_max) {
     Scope<Interval> scope;
     check_constant_bound(scope, e, correct_min, correct_max);
 }

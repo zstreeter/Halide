@@ -208,7 +208,7 @@ Stmt add_image_checks_inner(Stmt s,
     // references to the required sizes.
     map<string, Expr> replace_with_required;
 
-    for (const pair<string, FindBuffers::Result> &buf : bufs) {
+    for (const pair<const string, FindBuffers::Result> &buf : bufs) {
         const string &name = buf.first;
 
         for (int i = 0; i < buf.second.dimensions; i++) {
@@ -653,7 +653,7 @@ Stmt add_image_checks_inner(Stmt s,
     auto prepend_lets = [&](vector<pair<string, Expr>> *lets) {
         while (!lets->empty()) {
             auto &p = lets->back();
-            s = LetStmt::make(std::move(p.first), simplify(p.second), s);
+            s = LetStmt::make(p.first, simplify(p.second), s);
             lets->pop_back();
         }
     };
@@ -714,7 +714,7 @@ Stmt add_image_checks_inner(Stmt s,
 
 // The following function repeats the arguments list it just passes
 // through six times. Surely there is a better way?
-Stmt add_image_checks(Stmt s,
+Stmt add_image_checks(const Stmt &s,
                       const vector<Function> &outputs,
                       const Target &t,
                       const vector<string> &order,
