@@ -19,9 +19,10 @@ FetchContent_MakeAvailable(pybind11)
 ##
 
 add_subdirectory(src)
-add_subdirectory(stub)
+include(stub/CMakeLists.txt)
 
-if (WITH_TESTS)
+option(WITH_TEST_PYTHON "Build Python tests" ON)
+if (WITH_TESTS AND WITH_TEST_PYTHON)
     add_subdirectory(apps)
     add_subdirectory(correctness)
     add_subdirectory(tutorial)
