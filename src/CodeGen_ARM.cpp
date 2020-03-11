@@ -1057,13 +1057,13 @@ void CodeGen_ARM::codegen_vector_reduce(const VectorReduce *op, const Expr &init
          op->type.is_uint() ||
          op->type.is_float()) &&
         (op->type.element_of() != Float(16)) &&
-        (!op->type.is_bfloat()) &&       // No 16-bit float horizontal ops on arm
+        (!op->type.is_bfloat()) &&  // No 16-bit float horizontal ops on arm
         ((op->type.element_of() != Float(64) &&
           op->value.type().bits() != 64) ||
-         target.bits == 64) &&           // Only aarch64 has float64 horizontal ops
+         target.bits == 64) &&  // Only aarch64 has float64 horizontal ops
         (op->type.bits() != 64 ||
          op->type.is_float() ||
-         op->op == VectorReduce::Add) && // We only support 64-bit integer ops for add
+         op->op == VectorReduce::Add) &&  // We only support 64-bit integer ops for add
         factor == 2) {
         Expr arg = op->value;
         if (op->op == VectorReduce::Add &&
