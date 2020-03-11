@@ -4668,13 +4668,24 @@ Value *CodeGen_LLVM::call_intrin(llvm::Type *result_type, int intrin_lanes,
                 if (arg_values[i]->getType()->isVectorTy()) {
                     arg_i_lanes = (int)arg_values[i]->getType()->getVectorNumElements();
                 }
-                internal_assert(arg_i_lanes >= arg_lanes);
-                // Horizontally reducing intrinsics may have
-                // arguments that have more lanes than the
-                // result. Assume that the horizontally reduce
-                // neighboring elements...
-                int reduce = arg_i_lanes / arg_lanes;
-                args.push_back(slice_vector(arg_values[i], start * reduce, intrin_lanes * reduce));
+                if (arg_i_lanes >= arg_lanes) {
+                    // Horizontally reducing intrinsics may have
+                    // arguments that have more lanes than the
+                    // result. Assume that the horizontally reduce
+                    // neighboring elements...
+                    int reduce = arg_i_lanes / arg_lanes;
+                    args.push_back(slice_vector(arg_values[i], start * reduce, intrin_lanes * reduce));
+                } else if (arg_i_lanes == 1) {
+                    // It's a scalar arg to an intrinsic that returns
+                    // a vector. Replicate it over the slices.
+                    args.push_back(arg_values[i]);
+                } else {
+                    std::cerr << "Result_type: ";
+                    result_type->dump();
+                    std::cerr << "Argument: ";
+                    arg_values[i]->dump();
+                    internal_error << "Not sure what to do with this argument in call_intrin\n";
+                }
             }
 
             llvm::Type *result_slice_type =
