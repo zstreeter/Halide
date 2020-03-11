@@ -1472,6 +1472,14 @@ Value *CodeGen_LLVM::codegen(const Expr &e) {
     value = nullptr;
     e.accept(this);
     internal_assert(value) << "Codegen of an expr did not produce an llvm value\n";
+
+    // Halide doesn't distinguish between scalars and vectors of size 1.
+    if (e.type().is_scalar() &&
+        value->getType()->isVectorTy()) {
+        internal_assert(value->getType()->getVectorNumElements() == 1);
+        value = builder->CreateExtractElement(value, ConstantInt::get(i32_t, 0));
+    }
+
     // TODO: skip this correctness check for bool vectors,
     // as eliminate_bool_vectors() will cause a discrepancy for some backends
     // (eg OpenCL, HVX); for now we're just ignoring the assert, but
@@ -4411,8 +4419,11 @@ void CodeGen_LLVM::codegen_vector_reduce(const VectorReduce *op, const Expr &ini
         return;
     }
 
-#if LLVM_VERSION >= 90
-    if (output_lanes == 1) {
+    if (output_lanes == 1 &&
+        // As of the release of llvm 10, the 64-bit experimental total
+        // reductions don't seem to be done yet on arm.
+        (val.type().bits() != 64 ||
+         target.arch != Target::ARM)) {
         const int input_lanes = val.type().lanes();
         const int input_bytes = input_lanes * val.type().bytes();
         const bool llvm_has_intrinsic =
@@ -4503,7 +4514,6 @@ void CodeGen_LLVM::codegen_vector_reduce(const VectorReduce *op, const Expr &ini
             return;
         }
     }
-#endif
 
     if (output_lanes == 1 &&
         factor > native_lanes &&
@@ -4634,9 +4644,6 @@ Value *CodeGen_LLVM::call_intrin(const Type &result_type, int intrin_lanes,
     }
 
     llvm::Type *t = llvm_type_of(result_type);
-    if (!t->isVectorTy()) {
-        t = llvm::VectorType::get(t, 1);
-    }
 
     return call_intrin(t,
                        intrin_lanes,
@@ -4645,9 +4652,10 @@ Value *CodeGen_LLVM::call_intrin(const Type &result_type, int intrin_lanes,
 
 Value *CodeGen_LLVM::call_intrin(llvm::Type *result_type, int intrin_lanes,
                                  const string &name, vector<Value *> arg_values) {
-    internal_assert(result_type->isVectorTy()) << "call_intrin is for vector intrinsics only\n";
-
-    int arg_lanes = (int)(result_type->getVectorNumElements());
+    int arg_lanes = 1;
+    if (result_type->isVectorTy()) {
+        arg_lanes = (int)(result_type->getVectorNumElements());
+    }
 
     if (intrin_lanes != arg_lanes) {
         // Cut up each arg into appropriately-sized pieces, call the
@@ -4656,7 +4664,10 @@ Value *CodeGen_LLVM::call_intrin(llvm::Type *result_type, int intrin_lanes,
         for (int start = 0; start < arg_lanes; start += intrin_lanes) {
             vector<Value *> args;
             for (size_t i = 0; i < arg_values.size(); i++) {
-                int arg_i_lanes = (int)arg_values[i]->getType()->getVectorNumElements();
+                int arg_i_lanes = 1;
+                if (arg_values[i]->getType()->isVectorTy()) {
+                    arg_i_lanes = (int)arg_values[i]->getType()->getVectorNumElements();
+                }
                 internal_assert(arg_i_lanes >= arg_lanes);
                 // Horizontally reducing intrinsics may have
                 // arguments that have more lanes than the
@@ -4683,7 +4694,10 @@ Value *CodeGen_LLVM::call_intrin(llvm::Type *result_type, int intrin_lanes,
     llvm::Function *fn = module->getFunction(name);
 
     if (!fn) {
-        llvm::Type *intrinsic_result_type = VectorType::get(result_type->getScalarType(), intrin_lanes);
+        llvm::Type *intrinsic_result_type = result_type->getScalarType();
+        if (intrin_lanes > 1) {
+            intrinsic_result_type = VectorType::get(result_type->getScalarType(), intrin_lanes);
+        }
         FunctionType *func_t = FunctionType::get(intrinsic_result_type, arg_types, false);
         fn = llvm::Function::Create(func_t, llvm::Function::ExternalLinkage, name, module.get());
         fn->setCallingConv(CallingConv::C);
@@ -4698,6 +4712,11 @@ Value *CodeGen_LLVM::call_intrin(llvm::Type *result_type, int intrin_lanes,
 }
 
 Value *CodeGen_LLVM::slice_vector(Value *vec, int start, int size) {
+    // Force the arg to be an actual vector
+    if (!vec->getType()->isVectorTy()) {
+        vec = create_broadcast(vec, 1);
+    }
+
     int vec_lanes = vec->getType()->getVectorNumElements();
 
     if (start == 0 && size == vec_lanes) {

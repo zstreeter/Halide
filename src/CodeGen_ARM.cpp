@@ -1056,8 +1056,14 @@ void CodeGen_ARM::codegen_vector_reduce(const VectorReduce *op, const Expr &init
     if ((op->type.is_int() ||
          op->type.is_uint() ||
          op->type.is_float()) &&
-        (op->type.element_of() != Float(64) ||
-         target.bits == 64) &&
+        (op->type.element_of() != Float(16)) &&
+        (!op->type.is_bfloat()) &&       // No 16-bit float horizontal ops on arm
+        ((op->type.element_of() != Float(64) &&
+          op->value.type().bits() != 64) ||
+         target.bits == 64) &&           // Only aarch64 has float64 horizontal ops
+        (op->type.bits() != 64 ||
+         op->type.is_float() ||
+         op->op == VectorReduce::Add) && // We only support 64-bit integer ops for add
         factor == 2) {
         Expr arg = op->value;
         if (op->op == VectorReduce::Add &&
@@ -1080,11 +1086,12 @@ void CodeGen_ARM::codegen_vector_reduce(const VectorReduce *op, const Expr &init
             // For the non-widening version, the output must be 64-bit
             output_bits = 64;
         } else if (op->type.bits() * op->type.lanes() <= 64) {
-            // No point using the 128-bit version of the instruction is the output is narrow.
+            // No point using the 128-bit version of the instruction if the output is narrow.
             output_bits = 64;
         } else {
             output_bits = 128;
         }
+
         const int output_lanes = output_bits / op->type.bits();
         Type intrin_type = op->type.with_lanes(output_lanes);
         Type arg_type = arg.type().with_lanes(output_lanes * 2);
