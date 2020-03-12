@@ -116,6 +116,7 @@ void CodeGen_X86::visit(const Mul *op) {
     const int lanes = op->type.lanes();
     if (!target.has_feature(Target::SSE41) &&
         (lanes & (lanes - 1)) &&
+        (op->type.bits() >= 32) &&
         !op->type.is_float()) {
         // Any fancy shuffles to pad or slice into smaller vectors
         // just gets undone by LLVM and retriggers the bug. Just
