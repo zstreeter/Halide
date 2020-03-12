@@ -4419,6 +4419,7 @@ void CodeGen_LLVM::codegen_vector_reduce(const VectorReduce *op, const Expr &ini
         return;
     }
 
+#if LLVM_VERSION >= 90
     if (output_lanes == 1 &&
         // As of the release of llvm 10, the 64-bit experimental total
         // reductions don't seem to be done yet on arm.
@@ -4514,6 +4515,7 @@ void CodeGen_LLVM::codegen_vector_reduce(const VectorReduce *op, const Expr &ini
             return;
         }
     }
+#endif
 
     if (output_lanes == 1 &&
         factor > native_lanes &&
@@ -4680,11 +4682,8 @@ Value *CodeGen_LLVM::call_intrin(llvm::Type *result_type, int intrin_lanes,
                     // a vector. Replicate it over the slices.
                     args.push_back(arg_values[i]);
                 } else {
-                    std::cerr << "Result_type: ";
-                    result_type->dump();
-                    std::cerr << "Argument: ";
-                    arg_values[i]->dump();
-                    internal_error << "Not sure what to do with this argument in call_intrin\n";
+                    internal_error << "Argument in call_intrin has " << arg_i_lanes
+                                   << " with result type having " << arg_lanes << "\n";
                 }
             }
 
