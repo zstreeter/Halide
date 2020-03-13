@@ -15,3 +15,35 @@ endforeach ()
 
 add_library(the_sort_function MODULE the_sort_function.c)
 target_link_libraries(the_sort_function PRIVATE Halide::Runtime)
+
+set(TESTS
+    addconstant_test.py
+    atomics.py
+    autodiff.py
+    basics.py
+    bit_test.py
+    boundary_conditions.py
+    buffer.py
+    compile_to.py
+    division.py
+    extern.py
+    float_precision_test.py
+    iroperator.py
+    multipass_constraints.py
+    pystub.py
+    rdom.py
+    target.py
+    tuple_select.py
+    type.py
+    user_context_test.py
+    var.py
+    )
+
+foreach (TEST IN LISTS TESTS)
+    get_filename_component(TEST_NAME ${TEST} NAME_WE)
+    file(TO_NATIVE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/${TEST}" NATIVE_SCRIPT)
+    add_test(NAME python_correctness_${TEST_NAME}
+             COMMAND "${CMAKE_COMMAND}" -E env "PYTHONPATH=$<TARGET_FILE_DIR:Halide::Python>:${CMAKE_CURRENT_BINARY_DIR}" "HL_TARGET=host"
+             "$<TARGET_FILE:Python3::Interpreter>" "${NATIVE_SCRIPT}")
+    set_tests_properties(python_correctness_${TEST_NAME} PROPERTIES LABELS python)
+endforeach ()
