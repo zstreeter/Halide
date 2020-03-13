@@ -732,7 +732,7 @@ class VectorSubs : public IRMutator {
             scope.push(op->name, mutated_value);
             vector_scope.push(mutated_name, mutated_value);
             // Also keep track of the original let, in case inner code scalarizes.
-            containing_lets.push_back({op->name, op->value});
+            containing_lets.emplace_back(op->name, op->value);
         }
 
         Stmt mutated_body = mutate(op->body);
@@ -991,7 +991,7 @@ class VectorSubs : public IRMutator {
         int lanes = replacement.type().lanes();
 
         // The new expanded dimension is innermost.
-        new_extents.push_back(lanes);
+        new_extents.emplace_back(lanes);
 
         for (size_t i = 0; i < op->extents.size(); i++) {
             Expr extent = mutate(op->extents[i]);

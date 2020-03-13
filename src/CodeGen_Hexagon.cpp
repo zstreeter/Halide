@@ -1108,7 +1108,7 @@ void CodeGen_Hexagon::init_module() {
             if (a.bits == 0) {
                 break;
             }
-            arg_types.push_back(fix_lanes(a));
+            arg_types.emplace_back(fix_lanes(a));
         }
         define_hvx_intrinsic(intrin, ret_type, i.name, arg_types, i.flags);
     }
@@ -1858,7 +1858,12 @@ Value *CodeGen_Hexagon::vdelta(Value *lut, const vector<int> &indices) {
 static Value *create_vector(llvm::Type *ty, int val) {
     llvm::Type *scalar_ty = ty->getScalarType();
     Constant *value = ConstantInt::get(scalar_ty, val);
-    return ConstantVector::getSplat(ty->getVectorNumElements(), value);
+#if LLVM_VERSION >= 110
+    const llvm::ElementCount elem_count(ty->getVectorNumElements(), /*scalable*/ false);
+#else
+    const int elem_count = ty->getVectorNumElements();
+#endif
+    return ConstantVector::getSplat(elem_count, value);
 }
 
 Value *CodeGen_Hexagon::vlut(Value *lut, Value *idx, int min_index, int max_index) {
@@ -1943,7 +1948,7 @@ Value *CodeGen_Hexagon::vlut(Value *lut, Value *idx, int min_index, int max_inde
         int range_extent_i = std::min(max_index - min_index_i, 255);
         Value *range_i = vlut256(slice_vector(lut, min_index_i, range_extent_i),
                                  indices, 0, range_extent_i);
-        ranges.push_back({range_i, use_index});
+        ranges.emplace_back(range_i, use_index);
     }
 
     // TODO: This could be reduced hierarchically instead of in
