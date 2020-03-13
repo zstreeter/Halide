@@ -335,43 +335,6 @@ set(SOURCE_FILES
     WrapCalls.cpp
     )
 
-# Set warnings globally
-option(WARNINGS_AS_ERRORS "Treat warnings as errors" ON)
-if (WARNINGS_AS_ERRORS)
-    message(STATUS "WARNINGS_AS_ERRORS enabled")
-else ()
-    message(STATUS "WARNINGS_AS_ERRORS disabled")
-endif ()
-
-if (NOT MSVC)
-    add_compile_options(
-            -Wall
-            -Wno-unused-function
-            -Wcast-qual
-            -Wignored-qualifiers
-            $<$<COMPILE_LANGUAGE:CXX>:-Woverloaded-virtual>
-            $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:GNU>,$<VERSION_GREATER:$<CXX_COMPILER_VERSION>,5.1>>:-Wsuggest-override>
-    )
-    if (WARNINGS_AS_ERRORS)
-        add_compile_options(-Werror)
-    endif ()
-    if (HALIDE_ENABLE_EXCEPTIONS)
-        add_compile_options(-DWITH_EXCEPTIONS)
-    endif ()
-else ()
-    add_compile_options(/W3)
-    add_compile_options(/wd4018)  # disable "signed/unsigned mismatch"
-    add_compile_options(/wd4503)  # disable "decorated name length exceeded, name was truncated"
-    add_compile_options(/wd4267)  # disable "conversion from 'size_t' to 'int', possible loss of data"
-    add_compile_options(/wd4800)  # forcing value to bool 'true' or 'false' (performance warning)
-    if (WARNINGS_AS_ERRORS)
-        add_compile_options(/WX)
-    endif ()
-    if (HALIDE_ENABLE_EXCEPTIONS)
-        add_compile_options(/DWITH_EXCEPTIONS)
-    endif ()
-endif ()
-
 ##
 # Build and import the runtime.
 ##
