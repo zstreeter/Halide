@@ -480,6 +480,14 @@ define weak_odr i64 @pairwise_Add_int64_int32x2(<2 x i32> %x) nounwind alwaysinl
        ret i64 %scalar
 }
 
+define weak_odr i64 @pairwise_Add_int64_int64x2(<2 x i64> %x) nounwind alwaysinline {
+       ; There's no intrinsic for this on arm32, but we include an implementation for completeness.
+       %a = extractelement <2 x i64> %x, i32 0
+       %b = extractelement <2 x i64> %x, i32 1   
+       %result = add i64 %a, %b
+       ret i64 %result
+}
+
 define weak_odr <8 x i16> @pairwise_Add_uint16x8_uint8x16(<16 x i8> %x) nounwind alwaysinline {
        %result = tail call <8 x i16> @llvm.arm.neon.vpaddlu.v8i16.v16i8(<16 x i8> %x)
        ret <8 x i16> %result
