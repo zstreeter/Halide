@@ -187,6 +187,7 @@ jobs:
         # syscalls will be native, only user-mode code will be emulated.
         # This is not 100% perfect (there are various corner cases that
         # can bite us), but is *much* faster than full machine emulation.
+
         sudo apt-get update
         sudo apt-get install --install-suggests \
           ${{matrix.cc}}-arm-linux-gnueabihf \
@@ -198,14 +199,14 @@ jobs:
         #   libjpeg-dev:armhf \
         #   libpng-dev:armhf
 
-        if [[ "${{matrix.run_tests}}" == "true" ]]; then
-          sudo apt-get install --install-suggests \
-            qemu-user \
-            qemu-user-binfmt
+        # Note that we need QEMU even if not running tests, as Generators
+        # will be built for arm by default, and we need to be able to run them.
+        sudo apt-get install --install-suggests \
+          qemu-user \
+          qemu-user-binfmt
 
-          qemu-arm --version
-          echo ::set-env name=QEMU_LD_PREFIX::"/usr/arm-linux-gnueabihf"
-        fi
+        qemu-arm --version
+        echo ::set-env name=QEMU_LD_PREFIX::"/usr/arm-linux-gnueabihf"
 
     - name: Configure AArch64 Crosscompilation
       if: matrix.target_os == 'linux' && matrix.target_arch == 'arm' && matrix.target_bits == 64
@@ -222,14 +223,14 @@ jobs:
         #   libjpeg-dev:aarch64 \
         #   libpng-dev:aarch64
 
-        if [[ "${{matrix.run_tests}}" == "true" ]]; then
-          sudo apt-get install --install-suggests \
-            qemu-user \
-            qemu-user-binfmt
+        # Note that we need QEMU even if not running tests, as Generators
+        # will be built for arm by default, and we need to be able to run them.
+        sudo apt-get install --install-suggests \
+          qemu-user \
+          qemu-user-binfmt
 
-          qemu-arm --version
-          echo ::set-env name=QEMU_LD_PREFIX::"/usr/aarch64-linux-gnu"
-        fi
+        qemu-arm --version
+        echo ::set-env name=QEMU_LD_PREFIX::"/usr/aarch64-linux-gnu"
 
     - name: Configure Env Vars
       shell: bash
