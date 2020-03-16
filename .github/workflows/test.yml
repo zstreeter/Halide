@@ -175,13 +175,13 @@ jobs:
           ${{matrix.cxx}}-multilib \
           libjpeg-dev:i386 \
           libpng-dev:i386 \
-          ${PYTHON}-dev:i386 \
-          ${PYTHON}:i386
+          python${{matrix.python_version}}-dev:i386 \
+          python${{matrix.python_version}}:i386
 
-        file $(which ${PYTHON})
+        file $(which python${{matrix.python_version}})
 
         # Verify that we have a 32-bit build
-        PYVERSION=`${PYTHON} - << EOF
+        PYVERSION=`python${{matrix.python_version}} - << EOF
         import platform
         print(platform.architecture()[0])
         EOF`
