@@ -67,7 +67,8 @@ void test(Target t) {
 int main(int argc, char **argv) {
     Target t = get_jit_target_from_environment();
     if (!t.has_feature(Target::CUDACapability61)) {
-        printf("Not running test because no cuda (with compute capability 6.1) is not enabled in the target\n");
+        printf("Not running test because no cuda (with compute capability 6.1) is not enabled in target: %s\n",
+               t.to_string().c_str());
         return 0;
     }
 

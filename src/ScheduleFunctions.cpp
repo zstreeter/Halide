@@ -364,9 +364,10 @@ Stmt build_provide_loop_nest(const map<string, Function> &env,
             body = Atomic::make(func.name(), func.name() + ".mutex", body);
         } else {
             // No mutex is required if there is no parallelism, and it
-            // doesn't work if all parallelism is synchronous
+            // wouldn't work if all parallelism is synchronous
             // (e.g. vectorization). Vectorization and the like will
-            // need to handle atomic nodes specially.
+            // need to handle atomic nodes specially, by either
+            // emitting VectorReduce ops or scalarizing.
             body = Atomic::make(func.name(), std::string{}, body);
         }
     }

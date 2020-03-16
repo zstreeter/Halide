@@ -1036,6 +1036,11 @@ class VectorSubs : public IRMutator {
     Stmt visit(const Atomic *op) override {
         // Recognize a few special cases that we can handle as within-vector reduction trees.
         do {
+            if (!op->mutex_name.empty()) {
+                // We can't vectorize over a mutex
+                break;
+            }
+
             // f[x] = f[x] <op> y
             const Store *store = op->body.as<Store>();
             if (!store) break;
@@ -1243,6 +1248,10 @@ public:
 };  // namespace
 
 class FindVectorizableExprsInAtomicNode : public IRMutator {
+    // An Atomic node protects all accesses to a given buffer. We
+    // consider a name "poisoned" if it depends on an access to this
+    // buffer. We can't lift or vectorize anything that has been
+    // poisoned.
     Scope<> poisoned_names;
     bool poison = false;
 
@@ -1431,7 +1440,6 @@ class VectorizeLoops : public IRMutator {
             // Replace the var with a ramp within the body
             Expr for_var = Variable::make(Int(32), for_loop->name);
             Expr replacement = Ramp::make(for_loop->min, 1, extent->value);
-            stmt = for_loop->body;
             stmt = VectorSubs(for_loop->name, replacement, in_hexagon, target).mutate(for_loop->body);
         } else {
             stmt = IRMutator::visit(for_loop);

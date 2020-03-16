@@ -1354,6 +1354,12 @@ private:
             }
             break;
         case VectorReduce::Mul:
+            // Technically there are some things we could say
+            // here. E.g. if all the lanes are positive then we're
+            // bounded by the upper bound raised to the factor
+            // power. However it's extremely unlikely that a mul
+            // reduce will ever make it into a bounds expression, so
+            // for now we bail.
             interval = Interval::everything();
             break;
         case VectorReduce::Min:

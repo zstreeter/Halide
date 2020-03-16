@@ -1473,7 +1473,9 @@ Value *CodeGen_LLVM::codegen(const Expr &e) {
     e.accept(this);
     internal_assert(value) << "Codegen of an expr did not produce an llvm value\n";
 
-    // Halide doesn't distinguish between scalars and vectors of size 1.
+    // Halide's type system doesn't distinguish between scalars and
+    // vectors of size 1, so if a codegen method returned a vector of
+    // size one, just extract it out as a scalar.
     if (e.type().is_scalar() &&
         value->getType()->isVectorTy()) {
         internal_assert(value->getType()->getVectorNumElements() == 1);
@@ -4425,22 +4427,27 @@ void CodeGen_LLVM::codegen_vector_reduce(const VectorReduce *op, const Expr &ini
     }
 
 #if LLVM_VERSION >= 90
-    if (output_lanes == 1 &&
-        // As of the release of llvm 10, the 64-bit experimental total
-        // reductions don't seem to be done yet on arm.
-        (val.type().bits() != 64 ||
-         target.arch != Target::ARM)) {
+    if (output_lanes == 1) {
         const int input_lanes = val.type().lanes();
         const int input_bytes = input_lanes * val.type().bytes();
         const bool llvm_has_intrinsic =
+            // Must be one of these ops
             ((op->op == VectorReduce::Add ||
               op->op == VectorReduce::Mul ||
               op->op == VectorReduce::Min ||
               op->op == VectorReduce::Max) &&
+             // Must be a power of two lanes
              (input_lanes >= 2) &&
              ((input_lanes & (input_lanes - 1)) == 0) &&
-             ((!op->type.is_float() && input_bytes <= 1024) ||  // int versions exist up to 1024 bits
-              input_lanes <= 16));                              // float versions exist up to 16 lanes
+             // int versions exist up to 1024 bits
+             ((!op->type.is_float() && input_bytes <= 1024) ||
+              // float versions exist up to 16 lanes
+              input_lanes <= 16) &&
+             // As of the release of llvm 10, the 64-bit experimental total
+             // reductions don't seem to be done yet on arm.
+             (val.type().bits() != 64 ||
+              target.arch != Target::ARM));
+
         if (llvm_has_intrinsic) {
             std::stringstream name;
             name << "llvm.experimental.vector.reduce.";
@@ -4547,7 +4554,7 @@ void CodeGen_LLVM::codegen_vector_reduce(const VectorReduce *op, const Expr &ini
 
     if (factor > 2 && ((factor & 1) == 0)) {
         // Factor the reduce into multiple stages. If we're going to
-        // be widen the type by 4x or more we should also factor the
+        // be widening the type by 4x or more we should also factor the
         // widening into multiple stages.
         Type intermediate_type = op->value.type().with_lanes(op->value.type().lanes() / 2);
         Expr equiv = VectorReduce::make(op->op, op->value, intermediate_type.lanes());
@@ -4557,7 +4564,7 @@ void CodeGen_LLVM::codegen_vector_reduce(const VectorReduce *op, const Expr &ini
             Type narrower_type = op->value.type().with_bits(op->type.bits() / 4);
             Expr narrower = lossless_cast(narrower_type, op->value);
             if (!narrower.defined() && narrower_type.is_int()) {
-                // Maybe we can narrow to an uint instead.
+                // Maybe we can narrow to an unsigned int instead.
                 narrower_type = narrower_type.with_code(Type::UInt);
                 narrower = lossless_cast(narrower_type, op->value);
             }
@@ -4590,7 +4597,7 @@ void CodeGen_LLVM::codegen_vector_reduce(const VectorReduce *op, const Expr &ini
     }
     equiv = common_subexpression_elimination(equiv);
     codegen(equiv);
-}
+}  // namespace Internal
 
 void CodeGen_LLVM::visit(const Atomic *op) {
     if (op->mutex_name != "") {

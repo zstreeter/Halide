@@ -323,7 +323,6 @@ private:
         for (int i = 0; i < new_lanes; i++) {
             int idx = i * lane_stride + starting_lane;
             indices.push_back(op->indices[idx]);
-            debug(0) << indices.back() << "\n";
         }
         return Shuffle::make(op->vectors, indices);
     }

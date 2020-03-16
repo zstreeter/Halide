@@ -1078,17 +1078,36 @@ void CodeGen_ARM::codegen_vector_reduce(const VectorReduce *op, const Expr &init
     // lanes and double the bit-width.
 
     int factor = op->value.type().lanes() / op->type.lanes();
-    if ((op->type.is_int() ||
-         op->type.is_uint() ||
-         op->type.is_float()) &&
-        (op->type.element_of() != Float(16)) &&
-        (!op->type.is_bfloat()) &&              // No 16-bit float horizontal ops on arm
-        (op->type.element_of() != Float(64) ||  // Only aarch64 has float64 horizontal ops
-         target.bits == 64) &&
-        (op->type.bits() != 64 ||
-         op->type.is_float() ||
-         op->op == VectorReduce::Add) &&  // We only support 64-bit integer ops for add
-        factor == 2) {
+
+    // These are the types for which we have reduce intrinsics in the
+    // runtime.
+    bool have_reduce_intrinsic = (op->type.is_int() ||
+                                  op->type.is_uint() ||
+                                  op->type.is_float());
+
+    // We don't have 16-bit float or bfloat horizontal ops
+    if (op->type.is_bfloat() || (op->type.is_float() && op->type.bits() < 32)) {
+        have_reduce_intrinsic = false;
+    }
+
+    // Only aarch64 has float64 horizontal ops
+    if (target.bits == 32 && op->type.element_of() == Float(64)) {
+        have_reduce_intrinsic = false;
+    }
+
+    // For 64-bit integers, we only have addition, not min/max
+    if (op->type.bits() == 64 &&
+        !op->type.is_float() &&
+        op->op != VectorReduce::Add) {
+        have_reduce_intrinsic = false;
+    }
+
+    // We only have intrinsics that reduce by a factor of two
+    if (factor != 2) {
+        have_reduce_intrinsic = false;
+    }
+
+    if (have_reduce_intrinsic) {
         Expr arg = op->value;
         if (op->op == VectorReduce::Add &&
             op->type.bits() >= 16 &&

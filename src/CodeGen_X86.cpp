@@ -420,7 +420,10 @@ void CodeGen_X86::visit(const Call *op) {
 void CodeGen_X86::visit(const VectorReduce *op) {
     const int factor = op->value.type().lanes() / op->type.lanes();
 
-    // Match pmaddwd
+    // Match pmaddwd. X86 doesn't have many horizontal reduction ops,
+    // and the ones that exist are hit by llvm automatically using the
+    // base class lowering of VectorReduce (see
+    // test/correctness/simd_op_check.cpp).
     if (const Mul *mul = op->value.as<Mul>()) {
         Type narrower = Int(16, mul->type.lanes());
         Expr a = lossless_cast(narrower, mul->a);
