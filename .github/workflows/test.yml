@@ -3,8 +3,6 @@
 # - cmake static builds aren't handled yet.
 
 name: Build+Test
-author: steven-johnson
-description: Presubmit build+test for Halide pull requests
 on:
   # TODO: not sure if this is the best set of events/activity-types to use.
   pull_request:
