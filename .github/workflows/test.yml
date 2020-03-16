@@ -117,13 +117,15 @@ jobs:
       run: |
         if [[ ${{matrix.host_os}} == windows* ]]; then
           # On Windows, it's just 'python', apparently
-          echo ::set-env name=PYTHON::"python"
+          PYTHON="python"
         else
-          echo ::set-env name=PYTHON::"python${{matrix.python_version}}"
+          PYTHON="python${{matrix.python_version}}"
         fi
         ${PYTHON} -m pip --version
         ${PYTHON} -m pip install --upgrade pip
         ${PYTHON} -m pip install -r ${HALIDE_SOURCE_DIR}/python_bindings/requirements.txt
+
+        echo ::set-env name=PYTHON::"${PYTHON}"
 
     - name: Configure Ubuntu Host
       if: startsWith(matrix.host_os, 'ubuntu')
