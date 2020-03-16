@@ -1,6 +1,7 @@
 # TODO:
 # - all things opengl are skipped.
 # - cmake static builds aren't handled yet.
+# - apps are skipped for x86-32
 
 name: Build+Test
 on:
@@ -110,22 +111,6 @@ jobs:
       with:
         python-version: '${{matrix.python_version}}'
         architecture: 'x86'
-
-    - name: Install Python Dependencies
-      if: matrix.uses_python
-      shell: bash
-      run: |
-        if [[ ${{matrix.host_os}} == windows* ]]; then
-          # On Windows, it's just 'python', apparently
-          PYTHON="python"
-        else
-          PYTHON="python${{matrix.python_version}}"
-        fi
-        ${PYTHON} -m pip --version
-        ${PYTHON} -m pip install --upgrade pip
-        ${PYTHON} -m pip install -r ${HALIDE_SOURCE_DIR}/python_bindings/requirements.txt
-
-        echo ::set-env name=PYTHON::"${PYTHON}"
 
     - name: Configure Ubuntu Host
       if: startsWith(matrix.host_os, 'ubuntu')
@@ -263,6 +248,22 @@ jobs:
         echo ::set-env name=HALIDE_BUILD_DIR::"${_ROOT}/halide_build"
         echo ::set-env name=HALIDE_TEMP_DIR::"${_TEMP}"
         echo ::set-env name=PARALLEL_JOBS::"4"
+        if [[ ${{matrix.host_os}} == windows* ]]; then
+          # On Windows, it's just 'python', apparently
+          echo ::set-env name=PYTHON::"python"
+        else
+          echo ::set-env name=PYTHON::"python${{matrix.python_version}}"
+        fi
+
+    - name: Install Python Dependencies
+      if: matrix.uses_python
+      shell: bash
+      run: |
+        ${PYTHON} -m pip --version
+        ${PYTHON} -m pip install --upgrade pip
+        ${PYTHON} -m pip install -r ${HALIDE_SOURCE_DIR}/python_bindings/requirements.txt
+
+        echo ::set-env name=PYTHON::"${PYTHON}"
 
     - name: Install LLVM
       shell: bash
@@ -422,9 +423,6 @@ jobs:
           # TODO: Skip testing apps on 32-bit systems for now;
           # in particular, apps/autoscheduler can time out, and also has build
           # issues on ubuntu-32 at the moment (__udivdi3).
-          #
-          # TODO TODO TODO
-          #
           # TEST_GROUPS_BROKEN="${TEST_GROUPS_BROKEN} apps"
         else
           TEST_GROUPS_PARALLEL="${TEST_GROUPS_PARALLEL} apps"
