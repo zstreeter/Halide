@@ -82,16 +82,15 @@ jobs:
 
         exclude:
           - target_os: osx
-            target_arch: arm
-            # Don't attempt 32-bit builds for macos
-            target_bits: 32
+            target_arch: arm    # OSX is x86-only
+          - target_os: osx
+            target_bits: 32     # OSX is 64-bit only
           - target_os: windows
-            target_arch: arm
-            # Windows is CMake-only
-            build_tool: make
-          # crosscompiling/testing for arm is CMake-only
+            target_arch: arm    # OSX is x86-only
+          - target_os: windows
+            build_tool: make    # Windows is CMake-only
           - target_arch: arm
-            build_tool: make
+            build_tool: make    # All arm builds require CMake
 
     steps:
     - uses: actions/checkout@v2
