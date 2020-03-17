@@ -373,6 +373,10 @@ jobs:
               -D CMAKE_CXX_COMPILER=aarch64-linux-gnu-${{matrix.cxx}} \
               -D CMAKE_TOOLCHAIN_FILE=${HALIDE_SOURCE_DIR}/cmake/toolchain.linux-aarch64.cmake"
           fi
+          # Attempting to sniff for CUDA capability under QEMU can cause
+          # obscure crashes; these may be fixable, but for now, just disable
+          # the sniffing as it's not important for our purposes here.
+          export HL_DISABLE_DETECT_HOST_CUDA_CAPABILITY=1
         fi
 
         REQUIRE_LLVM_VERSION="${{matrix.llvm_version}}0"
