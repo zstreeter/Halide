@@ -18,7 +18,6 @@ jobs:
       CC: ${{matrix.cc}}
       CXX: ${{matrix.cxx}}
       LD: ${{matrix.ld}}
-      WITH_OPENGL:
 
     strategy:
       fail-fast: false  # Keep running other jobs even if one fails
@@ -130,6 +129,12 @@ jobs:
           libpng-dev \
           ninja-build
 
+        # TODO(srj): OpenGL is only needed to build the opengl tests (which we don't even run)...
+        sudo apt-get install \
+          freeglut3-dev \
+          libglu1-mesa-dev \
+          mesa-common-dev
+
     - name: Configure MacOS Host
       if: startsWith(matrix.host_os, 'macos')
       shell: bash
@@ -185,6 +190,12 @@ jobs:
           echo Expected 32-bit version of Python ${{matrix.python_version}}, found ${PYVERSION}
           exit 1
         fi
+
+        # TODO(srj): OpenGL is only needed to build the opengl tests (which we don't even run)...
+        sudo apt-get install \
+          freeglut3-dev:i386 \
+          libglu1-mesa-dev:i386 \
+          mesa-common-dev:i386
 
     - name: Configure Arm32 Crosscompilation
       if: matrix.target_os == 'linux' && matrix.target_arch == 'arm' && matrix.target_bits == 32
@@ -377,7 +388,6 @@ jobs:
           -D LLVM_DIR="${LLVM_INSTALL_DIR}/lib/cmake/llvm" \
           -D HALIDE_REQUIRE_LLVM_VERSION="${REQUIRE_LLVM_VERSION}" \
           -D HALIDE_SHARED_LIBRARY=${SHARED_LIBRARY} \
-          -D TARGET_OPENGL=OFF \
           -G "${CMAKE_GEN}" \
           ${EXTRA_CMAKE_FLAGS} \
           -S "${HALIDE_SOURCE_DIR}" \
