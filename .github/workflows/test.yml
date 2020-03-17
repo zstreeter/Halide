@@ -30,7 +30,7 @@ jobs:
         # llvm_version: [9, 10, 11]
         # build_tool: [cmake_shared, make]  # TODO: add cmake_static
         target_arch: [x86]
-        target_bits: [32]
+        target_bits: [32, 64]
         target_os: [linux]
         llvm_version: [9]
         build_tool: [cmake_shared, make]  # TODO: add cmake_static
