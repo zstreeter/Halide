@@ -415,7 +415,7 @@ jobs:
           -j ${PARALLEL_JOBS}
 
     - name: Run Tests (Make)
-      if: ${{matrix.run_tests}} && startsWith(matrix.build_tool, 'make')
+      if: matrix.run_tests && startsWith(matrix.build_tool, 'make')
       shell: bash
       run: |
         # Test Halide
@@ -453,7 +453,7 @@ jobs:
         done
 
     - name: Run Tests (CMake)
-      if: ${{matrix.run_tests}} && startsWith(matrix.build_tool, 'cmake')
+      if: matrix.run_tests && startsWith(matrix.build_tool, 'cmake')
       shell: bash
       run: |
         # Test Halide
