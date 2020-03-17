@@ -6,8 +6,7 @@ function(add_generator_python TARGET)
     set(multiValueArgs)
     cmake_parse_arguments(args "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
-    # TODO: break dependency on pybind11 here.
-    pybind11_add_module(${TARGET} MODULE SYSTEM ${HALIDE_PYSTUB_CPP_PATH} ${args_UNPARSED_ARGUMENTS})
+    Python3_add_library(${TARGET} MODULE ${HALIDE_PYSTUB_CPP_PATH} ${args_UNPARSED_ARGUMENTS})
     target_compile_definitions(${TARGET} PRIVATE
                                "HALIDE_PYSTUB_GENERATOR_NAME=${TARGET}"
                                "HALIDE_PYSTUB_MODULE_NAME=${TARGET}")
