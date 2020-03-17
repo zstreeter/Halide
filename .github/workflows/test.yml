@@ -1,7 +1,8 @@
 # TODO:
 # - all things opengl are skipped.
 # - cmake static builds aren't handled yet.
-# - apps are skipped for x86-32
+# - python is skipped for all
+# - apps are skipped for x86-32 (and all arm)
 
 name: Build+Test
 on:
@@ -24,10 +25,15 @@ jobs:
       matrix:
         # TODO: this matrix is probably overkill; we don't need to build every combination.
         # (Some combinations are nonsensical and excluded via the 'exclude:' section below.)
-        target_arch: [x86, arm]
-        target_bits: [32, 64]
-        target_os: [linux, osx, windows]
-        llvm_version: [9, 10, 11]
+        # target_arch: [x86, arm]
+        # target_bits: [32, 64]
+        # target_os: [linux, osx, windows]
+        # llvm_version: [9, 10, 11]
+        # build_tool: [cmake_shared, make]  # TODO: add cmake_static
+        target_arch: [x86]
+        target_bits: [32]
+        target_os: [linux]
+        llvm_version: [9]
         build_tool: [cmake_shared, make]  # TODO: add cmake_static
 
         # This section basically allows us to define additional values for
@@ -384,9 +390,10 @@ jobs:
         # Build Halide
         cd ${HALIDE_BUILD_DIR}
 
-        BUILD_TARGETS="distrib build_tests build_apps"
+        BUILD_TARGETS="distrib build_tests"
         if [[ "${{matrix.uses_python}}" == "true" ]]; then
-          BUILD_TARGETS="${BUILD_TARGETS} build_python_bindings"
+          # build_apps requires the python bindings
+          BUILD_TARGETS="${BUILD_TARGETS} build_apps build_python_bindings"
         fi
 
         make -f ${HALIDE_SOURCE_DIR}/Makefile -j ${PARALLEL_JOBS} ${BUILD_TARGETS}
@@ -425,7 +432,7 @@ jobs:
           # TODO: Skip testing apps on 32-bit systems for now;
           # in particular, apps/autoscheduler can time out, and also has build
           # issues on ubuntu-32 at the moment (__udivdi3).
-          # TEST_GROUPS_BROKEN="${TEST_GROUPS_BROKEN} apps"
+          TEST_GROUPS_BROKEN="${TEST_GROUPS_BROKEN} apps"
         else
           TEST_GROUPS_PARALLEL="${TEST_GROUPS_PARALLEL} apps"
         fi
