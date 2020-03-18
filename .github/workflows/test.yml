@@ -221,11 +221,6 @@ jobs:
         qemu-arm --version
         echo ::set-env name=QEMU_LD_PREFIX::"/usr/arm-linux-gnueabihf"
 
-        # Attempting to sniff for CUDA capability under QEMU can cause
-        # obscure crashes; these may be fixable, but for now, just disable
-        # the sniffing as it's not important for our purposes here.
-        echo ::set-env name=HL_DISABLE_DETECT_HOST_CUDA_CAPABILITY::"1"
-
     - name: Configure AArch64 Crosscompilation
       if: matrix.target_os == 'linux' && matrix.target_arch == 'arm' && matrix.target_bits == 64
       shell: bash
@@ -249,11 +244,6 @@ jobs:
 
         qemu-arm --version
         echo ::set-env name=QEMU_LD_PREFIX::"/usr/aarch64-linux-gnu"
-
-        # Attempting to sniff for CUDA capability under QEMU can cause
-        # obscure crashes; these may be fixable, but for now, just disable
-        # the sniffing as it's not important for our purposes here.
-        echo ::set-env name=HL_DISABLE_DETECT_HOST_CUDA_CAPABILITY::"1"
 
     - name: Configure Env Vars
       shell: bash
